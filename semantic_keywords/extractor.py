@@ -1,4 +1,6 @@
-# extractor.py
+# semantic_keywords/extractor.py
+"""Core extraction logic — candidates, embeddings, MMR ranking."""
+
 from __future__ import annotations
 
 import re
@@ -37,18 +39,10 @@ STOPWORDS = {
     "then", "also", "into", "about", "over", "after", "before", "between",
 }
 
-# ── Model cache (one loaded instance per HF model name) ──────────────────────
-
 _model_cache: dict[str, SentenceTransformer] = {}
 
-# ── Model detection ───────────────────────────────────────────────────────────
 
 def _get_hf_cache_dir() -> str:
-    """
-    Return the HuggingFace cache directory.
-    Checks HF_HOME and HUGGINGFACE_HUB_CACHE env vars first,
-    then falls back to the default ~/.cache/huggingface/hub.
-    """
     hf_home = os.environ.get("HF_HOME")
     if hf_home:
         return os.path.join(hf_home, "hub")
@@ -59,20 +53,9 @@ def _get_hf_cache_dir() -> str:
 
 
 def _is_model_cached(hf_name: str) -> bool:
-    """
-    Check if a model is present in the local HuggingFace cache
-    by looking for its folder in the hub cache directory.
-    HF stores models as 'models--<org>--<name>' or 'models--<name>'.
-    """
     cache_dir = _get_hf_cache_dir()
     if not os.path.isdir(cache_dir):
         return False
-
-    # HuggingFace converts '/' to '--' and prefixes with 'models--'
-    # e.g. "sentence-transformers/all-MiniLM-L6-v2"
-    #   -> "models--sentence-transformers--all-MiniLM-L6-v2"
-    # Models without an org prefix (e.g. "all-MiniLM-L6-v2") are stored
-    # under sentence-transformers by the sentence-transformers library.
     candidates = [
         f"models--sentence-transformers--{hf_name}",
         f"models--{hf_name.replace('/', '--')}",
@@ -80,7 +63,6 @@ def _is_model_cached(hf_name: str) -> bool:
     for folder in candidates:
         full_path = os.path.join(cache_dir, folder)
         if os.path.isdir(full_path):
-            # Confirm it has actual model blobs, not just an empty folder
             snapshots = os.path.join(full_path, "snapshots")
             if os.path.isdir(snapshots) and os.listdir(snapshots):
                 return True
@@ -88,22 +70,7 @@ def _is_model_cached(hf_name: str) -> bool:
 
 
 def detect_available_models() -> dict[str, dict[str, str]]:
-    """
-    Scan the HuggingFace cache and return only the models that are
-    already downloaded and ready to use offline.
-
-    Returns
-    -------
-    Dict keyed by alias ("fast", "balanced", "accurate"), same structure
-    as MODEL_REGISTRY, but only containing locally available models.
-
-    Example
-    -------
-    >>> detect_available_models()
-    {
-        'fast': {'hf_name': 'all-MiniLM-L6-v2', 'size': '90MB', ...},
-    }
-    """
+    """Return only the models that are downloaded and ready to use offline."""
     return {
         alias: info
         for alias, info in MODEL_REGISTRY.items()
@@ -113,18 +80,11 @@ def detect_available_models() -> dict[str, dict[str, str]]:
 
 def prompt_model_selection() -> str:
     """
-    Detect downloaded models, show a numbered menu, and return the
-    chosen alias ("fast", "balanced", or "accurate").
-
-    Behaviour
-    ---------
-    - 0 available  : print download instructions and raise SystemExit.
-    - 1 available  : auto-select it, no prompt needed.
-    - 2–3 available: show numbered menu, wait for valid input.
+    Detect downloaded models and prompt the user to choose one.
+    Returns the chosen alias string ("fast", "balanced", or "accurate").
     """
     available = detect_available_models()
 
-    # ── No models found ───────────────────────────────────────────────────────
     if not available:
         print("\n  No models found in local cache.")
         print("  Run download_model.py to download at least one:\n")
@@ -133,20 +93,17 @@ def prompt_model_selection() -> str:
         print("\n  Example:\n    python download_model.py\n")
         raise SystemExit(1)
 
-    # ── Exactly one model found — auto-select ─────────────────────────────────
     if len(available) == 1:
         alias = next(iter(available))
         info  = available[alias]
-        print(f"\n  Auto-selected model: [{alias}]  {info['hf_name']}  ({info['size']})")
+        print(f"\n  Auto-selected: [{alias}]  {info['hf_name']}  ({info['size']})")
         print(f"  Tip: download more models with python download_model.py\n")
         return alias
 
-    # ── Multiple models found — show menu ─────────────────────────────────────
     aliases = list(available.keys())
-
     print("\n  Available models (downloaded and ready):\n")
     for i, alias in enumerate(aliases, start=1):
-        info = available[alias]
+        info   = available[alias]
         marker = " *" if alias == DEFAULT_MODEL else "  "
         print(
             f"  {marker} [{i}]  {alias:<10}"
@@ -157,10 +114,11 @@ def prompt_model_selection() -> str:
     print(f"\n       * = default\n")
 
     while True:
-        raw = input(f"  Select model [1–{len(aliases)}] (Enter = default '{DEFAULT_MODEL}'): ").strip()
+        raw = input(
+            f"  Select model [1–{len(aliases)}] (Enter = default '{DEFAULT_MODEL}'): "
+        ).strip()
 
         if raw == "":
-            # Enter with no input → use default if available, else first
             chosen = DEFAULT_MODEL if DEFAULT_MODEL in available else aliases[0]
             print(f"  Using: {chosen}\n")
             return chosen
@@ -173,15 +131,11 @@ def prompt_model_selection() -> str:
         print(f"  Please enter a number between 1 and {len(aliases)}, or press Enter.")
 
 
-# ── Internal helpers ──────────────────────────────────────────────────────────
-
 def _resolve_model_name(model: str) -> str:
-    """Translate alias → HuggingFace model name. Unknown strings pass through."""
     return MODEL_REGISTRY[model]["hf_name"] if model in MODEL_REGISTRY else model
 
 
 def _get_model(model: str = DEFAULT_MODEL) -> SentenceTransformer:
-    """Return a loaded SentenceTransformer, using the in-process cache."""
     hf_name = _resolve_model_name(model)
     if hf_name not in _model_cache:
         try:
@@ -207,11 +161,9 @@ def _extract_candidates(text: str, max_words: int = 3) -> list[str]:
     words = _clean(text).split()
     seen: set[str] = set()
     candidates: list[str] = []
-
     for n in range(1, max_words + 1):
         for i in range(len(words) - n + 1):
             window = words[i : i + n]
-
             if all(w in STOPWORDS for w in window):
                 continue
             if any(len(w) <= 1 for w in window):
@@ -220,12 +172,10 @@ def _extract_candidates(text: str, max_words: int = 3) -> list[str]:
                 word = window[0]
                 if word in STOPWORDS or len(word) < 4:
                     continue
-
             phrase = " ".join(window)
             if phrase not in seen:
                 seen.add(phrase)
                 candidates.append(phrase)
-
     return candidates
 
 
@@ -246,10 +196,8 @@ def _mmr(
     valid = np.where(relevance >= min_score)[0]
     if len(valid) == 0:
         return []
-
     selected_indices: list[int] = []
     remaining = list(valid)
-
     for _ in range(min(top_n, len(valid))):
         if not remaining:
             break
@@ -269,14 +217,11 @@ def _mmr(
                     best = i
         selected_indices.append(best)
         remaining.remove(best)
-
     return [
         {"keyword": candidates[i], "score": round(float(relevance[i]), 4)}
         for i in selected_indices
     ]
 
-
-# ── Public API ────────────────────────────────────────────────────────────────
 
 def extract(
     text: str,
@@ -295,8 +240,8 @@ def extract(
     top_n     : Maximum number of keywords to return.
     min_score : Minimum cosine similarity threshold (0.0–1.0).
     max_words : Maximum words per candidate phrase (1–3 recommended).
-    model     : "fast" (default) | "balanced" | "accurate" | any HF model name.
-    diversity : MMR balance between relevance and variety (0.0–1.0).
+    model     : "fast" | "balanced" | "accurate" | any HuggingFace model name.
+    diversity : MMR balance factor (0.0 = pure relevance, 1.0 = pure diversity).
 
     Returns
     -------
@@ -304,25 +249,19 @@ def extract(
 
     Examples
     --------
+    >>> from semantic_keywords import extract
     >>> extract("Tanzania fintech mobile money startups")
     [{'keyword': 'mobile money', 'score': 0.513}, ...]
-
-    >>> extract("...", model="accurate", top_n=10)
-    [{'keyword': ..., 'score': ...}, ...]
     """
     if not text or not text.strip():
         return []
-
     candidates = _extract_candidates(text, max_words=max_words)
     if not candidates:
         return []
-
     all_texts = [text] + candidates
     embeddings = _embed(all_texts, model=model)
-
-    doc_vector       = embeddings[0]
+    doc_vector        = embeddings[0]
     candidate_vectors = embeddings[1:]
-
     return _mmr(
         doc_vector, candidate_vectors, candidates,
         top_n=top_n, min_score=min_score, diversity=diversity,
@@ -330,11 +269,5 @@ def extract(
 
 
 def list_models() -> dict[str, dict[str, str]]:
-    """
-    Return the full model registry.
-
-    >>> import extractor
-    >>> extractor.list_models()
-    {'fast': {'hf_name': ..., 'size': ..., 'note': ...}, ...}
-    """
+    """Return the full model registry."""
     return dict(MODEL_REGISTRY)

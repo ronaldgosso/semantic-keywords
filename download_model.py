@@ -1,7 +1,7 @@
 # Interactive downloader — detects what's already cached and lets you
 # choose which models to download.
 
-from extractor import MODEL_REGISTRY, detect_available_models
+from semantic_keywords.extractor import MODEL_REGISTRY, detect_available_models
 
 def main() -> None:
     available = detect_available_models()
