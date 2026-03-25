@@ -1,11 +1,21 @@
-# extractor.py  —  Phase 2 (revised with MMR)
+# extractor.py  —  Phase 2 (with model options)
 from __future__ import annotations
 
 import re
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
-MODEL_NAME = "all-MiniLM-L6-v2"
+# ── Model registry ───────────────────────────────────────────────────────────
+# Keys are the user-facing aliases. Values are HuggingFace model identifiers.
+# Add new models here without touching any other part of the code.
+
+MODEL_REGISTRY: dict[str, str] = {
+    "fast":     "all-MiniLM-L6-v2",    # 90MB  — default
+    "balanced": "all-MiniLM-L12-v2",   # 120MB — more layers, slightly better
+    "accurate": "all-mpnet-base-v2",   # 420MB — best quality, slower on CPU
+}
+
+DEFAULT_MODEL = "fast"
 
 STOPWORDS = {
     "a", "an", "the", "and", "or", "but", "in", "on", "at", "to", "for",
@@ -16,15 +26,59 @@ STOPWORDS = {
     "then", "also", "into", "about", "over", "after", "before", "between",
 }
 
-_model: SentenceTransformer | None = None
+# ── Model cache ──────────────────────────────────────────────────────────────
+# One cached instance per model name — so switching models in the same session
+# doesn't re-load a model that was already used earlier.
+
+_model_cache: dict[str, SentenceTransformer] = {}
 
 
-def _get_model() -> SentenceTransformer:
-    global _model
-    if _model is None:
-        _model = SentenceTransformer(MODEL_NAME, local_files_only=True)
-    return _model
+def _resolve_model_name(model: str) -> str:
+    """
+    Translate a user-facing alias to a HuggingFace model identifier.
 
+    Aliases like "fast" → "all-MiniLM-L6-v2"
+    Unknown strings are treated as custom HuggingFace model names directly.
+
+    Examples
+    --------
+    _resolve_model_name("fast")                    → "all-MiniLM-L6-v2"
+    _resolve_model_name("accurate")                → "all-mpnet-base-v2"
+    _resolve_model_name("BAAI/bge-small-en-v1.5") → "BAAI/bge-small-en-v1.5"
+    """
+    return MODEL_REGISTRY.get(model, model)
+
+
+def _get_model(model: str = DEFAULT_MODEL) -> SentenceTransformer:
+    """
+    Return a loaded SentenceTransformer, using the cache when possible.
+
+    Parameters
+    ----------
+    model : alias ("fast", "balanced", "accurate") or any HuggingFace model name.
+    """
+    hf_name = _resolve_model_name(model)
+
+    if hf_name not in _model_cache:
+        # local_files_only=True — never hit the internet after first download.
+        # If the model isn't cached locally, this raises a clear error telling
+        # the user to run the downloader first.
+        try:
+            _model_cache[hf_name] = SentenceTransformer(
+                hf_name, local_files_only=True
+            )
+        except Exception:
+            raise OSError(
+                f"Model '{hf_name}' not found in local cache.\n"
+                f"Run this once to download it:\n\n"
+                f"    python -c \"from sentence_transformers import SentenceTransformer; "
+                f"SentenceTransformer('{hf_name}')\"\n"
+            )
+
+    return _model_cache[hf_name]
+
+
+# ── Text processing ──────────────────────────────────────────────────────────
 
 def _clean(text: str) -> str:
     text = text.lower()
@@ -59,13 +113,11 @@ def _extract_candidates(text: str, max_words: int = 3) -> list[str]:
     return candidates
 
 
-def _embed(texts: list[str]) -> np.ndarray:
-    model = _get_model()
-    return model.encode(texts, normalize_embeddings=True, show_progress_bar=False)
+# ── Embedding + MMR ──────────────────────────────────────────────────────────
 
-
-def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> np.ndarray:
-    return b @ a
+def _embed(texts: list[str], model: str = DEFAULT_MODEL) -> np.ndarray:
+    m = _get_model(model)
+    return m.encode(texts, normalize_embeddings=True, show_progress_bar=False)
 
 
 def _mmr(
@@ -114,25 +166,49 @@ def _mmr(
     ]
 
 
+# ── Public API ───────────────────────────────────────────────────────────────
+
 def extract(
     text: str,
     top_n: int = 5,
     min_score: float = 0.20,
     max_words: int = 3,
+    model: str = DEFAULT_MODEL,
+    diversity: float = 0.7,
 ) -> list[dict]:
     """
-    Extract semantically relevant keywords from text using MMR ranking.
+    Extract semantically relevant keywords from text.
 
     Parameters
     ----------
-    text      : Input document.
-    top_n     : Max keywords to return.
-    min_score : Minimum cosine similarity threshold (0.0–1.0).
-    max_words : Max words per candidate phrase.
+    text      : Input document (any length).
+    top_n     : Maximum number of keywords to return.
+    min_score : Minimum cosine similarity to include a result (0.0–1.0).
+    max_words : Maximum words per candidate phrase (1–3 recommended).
+    model     : Which model to use. Options:
+                  "fast"     — all-MiniLM-L6-v2  (90MB,  default)
+                  "balanced" — all-MiniLM-L12-v2 (120MB)
+                  "accurate" — all-mpnet-base-v2 (420MB)
+                  any HuggingFace model name     (custom)
+    diversity : MMR diversity factor (0.0–1.0).
+                0.0 = pure relevance, may repeat similar phrases.
+                1.0 = pure diversity, may miss the most relevant phrase.
+                0.7 = recommended default.
 
     Returns
     -------
     List of {"keyword": str, "score": float} dicts, best first.
+
+    Examples
+    --------
+    >>> extract("Tanzania fintech mobile money startups")
+    [{'keyword': 'mobile money', 'score': 0.513}, ...]
+
+    >>> extract("...", model="accurate", top_n=10)
+    [...]
+
+    >>> extract("...", model="BAAI/bge-small-en-v1.5")
+    [...]
     """
     if not text or not text.strip():
         return []
@@ -142,9 +218,24 @@ def extract(
         return []
 
     all_texts = [text] + candidates
-    embeddings = _embed(all_texts)
+    embeddings = _embed(all_texts, model=model)
 
     doc_vector = embeddings[0]
     candidate_vectors = embeddings[1:]
 
-    return _mmr(doc_vector, candidate_vectors, candidates, top_n=top_n, min_score=min_score)
+    return _mmr(
+        doc_vector, candidate_vectors, candidates,
+        top_n=top_n, min_score=min_score, diversity=diversity,
+    )
+
+
+def list_models() -> dict[str, str]:
+    """
+    Return the built-in model registry.
+    Useful for CLI help text and documentation.
+
+    >>> import extractor
+    >>> extractor.list_models()
+    {'fast': 'all-MiniLM-L6-v2', 'balanced': 'all-MiniLM-L12-v2', ...}
+    """
+    return dict(MODEL_REGISTRY)
