@@ -1,16 +1,29 @@
+# extractor.py
 from __future__ import annotations
 
 import re
+import os
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
-# ── Model registry ───────────────────────────────────────────────────────────
-# Keys are the user-facing aliases. Values are HuggingFace model identifiers.
+# ── Model registry ────────────────────────────────────────────────────────────
 
-MODEL_REGISTRY: dict[str, str] = {
-    "fast":     "all-MiniLM-L6-v2",    # 90MB  — default
-    "balanced": "all-MiniLM-L12-v2",   # 120MB — more layers, slightly better
-    "accurate": "all-mpnet-base-v2",   # 420MB — best quality, slower on CPU
+MODEL_REGISTRY: dict[str, dict[str, str]] = {
+    "fast": {
+        "hf_name": "all-MiniLM-L6-v2",
+        "size":    "90MB",
+        "note":    "fastest, great for most use cases",
+    },
+    "balanced": {
+        "hf_name": "all-MiniLM-L12-v2",
+        "size":    "120MB",
+        "note":    "slightly better accuracy, still fast",
+    },
+    "accurate": {
+        "hf_name": "all-mpnet-base-v2",
+        "size":    "420MB",
+        "note":    "best quality, slower on CPU",
+    },
 }
 
 DEFAULT_MODEL = "fast"
@@ -24,43 +37,153 @@ STOPWORDS = {
     "then", "also", "into", "about", "over", "after", "before", "between",
 }
 
-# ── Model cache ──────────────────────────────────────────────────────────────
-# One cached instance per model name — so switching models in the same session
-# doesn't re-load a model that was already used earlier.
+# ── Model cache (one loaded instance per HF model name) ──────────────────────
 
 _model_cache: dict[str, SentenceTransformer] = {}
 
+# ── Model detection ───────────────────────────────────────────────────────────
+
+def _get_hf_cache_dir() -> str:
+    """
+    Return the HuggingFace cache directory.
+    Checks HF_HOME and HUGGINGFACE_HUB_CACHE env vars first,
+    then falls back to the default ~/.cache/huggingface/hub.
+    """
+    hf_home = os.environ.get("HF_HOME")
+    if hf_home:
+        return os.path.join(hf_home, "hub")
+    hub_cache = os.environ.get("HUGGINGFACE_HUB_CACHE")
+    if hub_cache:
+        return hub_cache
+    return os.path.join(os.path.expanduser("~"), ".cache", "huggingface", "hub")
+
+
+def _is_model_cached(hf_name: str) -> bool:
+    """
+    Check if a model is present in the local HuggingFace cache
+    by looking for its folder in the hub cache directory.
+    HF stores models as 'models--<org>--<name>' or 'models--<name>'.
+    """
+    cache_dir = _get_hf_cache_dir()
+    if not os.path.isdir(cache_dir):
+        return False
+
+    # HuggingFace converts '/' to '--' and prefixes with 'models--'
+    # e.g. "sentence-transformers/all-MiniLM-L6-v2"
+    #   -> "models--sentence-transformers--all-MiniLM-L6-v2"
+    # Models without an org prefix (e.g. "all-MiniLM-L6-v2") are stored
+    # under sentence-transformers by the sentence-transformers library.
+    candidates = [
+        f"models--sentence-transformers--{hf_name}",
+        f"models--{hf_name.replace('/', '--')}",
+    ]
+    for folder in candidates:
+        full_path = os.path.join(cache_dir, folder)
+        if os.path.isdir(full_path):
+            # Confirm it has actual model blobs, not just an empty folder
+            snapshots = os.path.join(full_path, "snapshots")
+            if os.path.isdir(snapshots) and os.listdir(snapshots):
+                return True
+    return False
+
+
+def detect_available_models() -> dict[str, dict[str, str]]:
+    """
+    Scan the HuggingFace cache and return only the models that are
+    already downloaded and ready to use offline.
+
+    Returns
+    -------
+    Dict keyed by alias ("fast", "balanced", "accurate"), same structure
+    as MODEL_REGISTRY, but only containing locally available models.
+
+    Example
+    -------
+    >>> detect_available_models()
+    {
+        'fast': {'hf_name': 'all-MiniLM-L6-v2', 'size': '90MB', ...},
+    }
+    """
+    return {
+        alias: info
+        for alias, info in MODEL_REGISTRY.items()
+        if _is_model_cached(info["hf_name"])
+    }
+
+
+def prompt_model_selection() -> str:
+    """
+    Detect downloaded models, show a numbered menu, and return the
+    chosen alias ("fast", "balanced", or "accurate").
+
+    Behaviour
+    ---------
+    - 0 available  : print download instructions and raise SystemExit.
+    - 1 available  : auto-select it, no prompt needed.
+    - 2–3 available: show numbered menu, wait for valid input.
+    """
+    available = detect_available_models()
+
+    # ── No models found ───────────────────────────────────────────────────────
+    if not available:
+        print("\n  No models found in local cache.")
+        print("  Run download_model.py to download at least one:\n")
+        for alias, info in MODEL_REGISTRY.items():
+            print(f"    [{alias:<10}]  {info['hf_name']:<35}  {info['size']}")
+        print("\n  Example:\n    python download_model.py\n")
+        raise SystemExit(1)
+
+    # ── Exactly one model found — auto-select ─────────────────────────────────
+    if len(available) == 1:
+        alias = next(iter(available))
+        info  = available[alias]
+        print(f"\n  Auto-selected model: [{alias}]  {info['hf_name']}  ({info['size']})")
+        print(f"  Tip: download more models with python download_model.py\n")
+        return alias
+
+    # ── Multiple models found — show menu ─────────────────────────────────────
+    aliases = list(available.keys())
+
+    print("\n  Available models (downloaded and ready):\n")
+    for i, alias in enumerate(aliases, start=1):
+        info = available[alias]
+        marker = " *" if alias == DEFAULT_MODEL else "  "
+        print(
+            f"  {marker} [{i}]  {alias:<10}"
+            f"  {info['hf_name']:<35}"
+            f"  {info['size']:<7}"
+            f"  {info['note']}"
+        )
+    print(f"\n       * = default\n")
+
+    while True:
+        raw = input(f"  Select model [1–{len(aliases)}] (Enter = default '{DEFAULT_MODEL}'): ").strip()
+
+        if raw == "":
+            # Enter with no input → use default if available, else first
+            chosen = DEFAULT_MODEL if DEFAULT_MODEL in available else aliases[0]
+            print(f"  Using: {chosen}\n")
+            return chosen
+
+        if raw.isdigit() and 1 <= int(raw) <= len(aliases):
+            chosen = aliases[int(raw) - 1]
+            print(f"  Using: {chosen}\n")
+            return chosen
+
+        print(f"  Please enter a number between 1 and {len(aliases)}, or press Enter.")
+
+
+# ── Internal helpers ──────────────────────────────────────────────────────────
 
 def _resolve_model_name(model: str) -> str:
-    """
-    Translate a user-facing alias to a HuggingFace model identifier.
-
-    Aliases like "fast" → "all-MiniLM-L6-v2"
-    Unknown strings are treated as custom HuggingFace model names directly.
-
-    Examples
-    --------
-    _resolve_model_name("fast")                    → "all-MiniLM-L6-v2"
-    _resolve_model_name("accurate")                → "all-mpnet-base-v2"
-    _resolve_model_name("BAAI/bge-small-en-v1.5") → "BAAI/bge-small-en-v1.5"
-    """
-    return MODEL_REGISTRY.get(model, model)
+    """Translate alias → HuggingFace model name. Unknown strings pass through."""
+    return MODEL_REGISTRY[model]["hf_name"] if model in MODEL_REGISTRY else model
 
 
 def _get_model(model: str = DEFAULT_MODEL) -> SentenceTransformer:
-    """
-    Return a loaded SentenceTransformer, using the cache when possible.
-
-    Parameters
-    ----------
-    model : alias ("fast", "balanced", "accurate") or any HuggingFace model name.
-    """
+    """Return a loaded SentenceTransformer, using the in-process cache."""
     hf_name = _resolve_model_name(model)
-
     if hf_name not in _model_cache:
-        # local_files_only=True — never hit the internet after first download.
-        # If the model isn't cached locally, this raises a clear error telling
-        # the user to run the downloader first.
         try:
             _model_cache[hf_name] = SentenceTransformer(
                 hf_name, local_files_only=True
@@ -68,15 +191,10 @@ def _get_model(model: str = DEFAULT_MODEL) -> SentenceTransformer:
         except Exception:
             raise OSError(
                 f"Model '{hf_name}' not found in local cache.\n"
-                f"Run this once to download it:\n\n"
-                f"    python -c \"from sentence_transformers import SentenceTransformer; "
-                f"SentenceTransformer('{hf_name}')\"\n"
+                f"Run download_model.py to download it first.\n"
             )
-
     return _model_cache[hf_name]
 
-
-# ── Text processing ──────────────────────────────────────────────────────────
 
 def _clean(text: str) -> str:
     text = text.lower()
@@ -111,8 +229,6 @@ def _extract_candidates(text: str, max_words: int = 3) -> list[str]:
     return candidates
 
 
-# ── Embedding + MMR ──────────────────────────────────────────────────────────
-
 def _embed(texts: list[str], model: str = DEFAULT_MODEL) -> np.ndarray:
     m = _get_model(model)
     return m.encode(texts, normalize_embeddings=True, show_progress_bar=False)
@@ -127,7 +243,6 @@ def _mmr(
     diversity: float = 0.7,
 ) -> list[dict]:
     relevance = candidate_vectors @ doc_vector
-
     valid = np.where(relevance >= min_score)[0]
     if len(valid) == 0:
         return []
@@ -138,14 +253,12 @@ def _mmr(
     for _ in range(min(top_n, len(valid))):
         if not remaining:
             break
-
         if not selected_indices:
             best = max(remaining, key=lambda i: relevance[i])
         else:
             selected_vectors = candidate_vectors[selected_indices]
             best_score = -np.inf
             best = remaining[0]
-
             for i in remaining:
                 rel = relevance[i]
                 sims_to_selected = candidate_vectors[i] @ selected_vectors.T
@@ -154,7 +267,6 @@ def _mmr(
                 if mmr_score > best_score:
                     best_score = mmr_score
                     best = i
-
         selected_indices.append(best)
         remaining.remove(best)
 
@@ -164,7 +276,7 @@ def _mmr(
     ]
 
 
-# ── Public API ───────────────────────────────────────────────────────────────
+# ── Public API ────────────────────────────────────────────────────────────────
 
 def extract(
     text: str,
@@ -175,23 +287,16 @@ def extract(
     diversity: float = 0.7,
 ) -> list[dict]:
     """
-    Extract semantically relevant keywords from text.
+    Extract semantically relevant keywords from text using MMR ranking.
 
     Parameters
     ----------
     text      : Input document (any length).
     top_n     : Maximum number of keywords to return.
-    min_score : Minimum cosine similarity to include a result (0.0–1.0).
+    min_score : Minimum cosine similarity threshold (0.0–1.0).
     max_words : Maximum words per candidate phrase (1–3 recommended).
-    model     : Which model to use. Options:
-                  "fast"     — all-MiniLM-L6-v2  (90MB,  default)
-                  "balanced" — all-MiniLM-L12-v2 (120MB)
-                  "accurate" — all-mpnet-base-v2 (420MB)
-                  any HuggingFace model name     (custom)
-    diversity : MMR diversity factor (0.0–1.0).
-                0.0 = pure relevance, may repeat similar phrases.
-                1.0 = pure diversity, may miss the most relevant phrase.
-                0.7 = recommended default.
+    model     : "fast" (default) | "balanced" | "accurate" | any HF model name.
+    diversity : MMR balance between relevance and variety (0.0–1.0).
 
     Returns
     -------
@@ -203,10 +308,7 @@ def extract(
     [{'keyword': 'mobile money', 'score': 0.513}, ...]
 
     >>> extract("...", model="accurate", top_n=10)
-    [...]
-
-    >>> extract("...", model="BAAI/bge-small-en-v1.5")
-    [...]
+    [{'keyword': ..., 'score': ...}, ...]
     """
     if not text or not text.strip():
         return []
@@ -218,7 +320,7 @@ def extract(
     all_texts = [text] + candidates
     embeddings = _embed(all_texts, model=model)
 
-    doc_vector = embeddings[0]
+    doc_vector       = embeddings[0]
     candidate_vectors = embeddings[1:]
 
     return _mmr(
@@ -227,13 +329,12 @@ def extract(
     )
 
 
-def list_models() -> dict[str, str]:
+def list_models() -> dict[str, dict[str, str]]:
     """
-    Return the built-in model registry.
-    Useful for CLI help text and documentation.
+    Return the full model registry.
 
     >>> import extractor
     >>> extractor.list_models()
-    {'fast': 'all-MiniLM-L6-v2', 'balanced': 'all-MiniLM-L12-v2', ...}
+    {'fast': {'hf_name': ..., 'size': ..., 'note': ...}, ...}
     """
     return dict(MODEL_REGISTRY)
