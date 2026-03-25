@@ -1,6 +1,6 @@
 [build-system]
-requires      = ["setuptools>=68", "wheel"]
-build-backend = "setuptools.backends.legacy:build"
+requires      = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name            = "semantic-keywords"
@@ -37,6 +37,15 @@ dependencies = [
     "numpy>=1.24",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.4",
+    "mypy>=1.9",
+    "black>=24.0",
+    "build>=1.0",
+    "twine>=5.0",
+]
+
 [project.urls]
 Homepage      = "https://ronaldgosso.github.io/semantic-keywords"
 Repository    = "https://github.com/ronaldgosso/semantic-keywords"
@@ -46,23 +55,30 @@ Repository    = "https://github.com/ronaldgosso/semantic-keywords"
 semkw = "semantic_keywords.cli:main"
 
 [tool.setuptools.packages.find]
-where = ["."]
+where   = ["."]
 include = ["semantic_keywords*"]
 
+# ── Ruff ──────────────────────────────────────────────────────────────────────
 [tool.ruff]
-line-length = 100
+line-length    = 100
 target-version = "py39"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP"]
+select = ["E", "F", "I", "UP", "W"]
 ignore = ["E501"]
 
-[tool.mypy]
-python_version       = "3.9"
-warn_return_any      = true
-warn_unused_configs  = true
-ignore_missing_imports = true
+[tool.ruff.lint.isort]
+known-first-party = ["semantic_keywords"]
 
+# ── Mypy ──────────────────────────────────────────────────────────────────────
+[tool.mypy]
+python_version         = "3.9"
+warn_return_any        = true
+warn_unused_configs    = true
+ignore_missing_imports = true
+strict                 = false
+
+# ── Black ─────────────────────────────────────────────────────────────────────
 [tool.black]
 line-length    = 100
 target-version = ["py39"]
