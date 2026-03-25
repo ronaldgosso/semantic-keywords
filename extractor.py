@@ -1,19 +1,12 @@
-# extractor.py
-# Phase 2: Core semantic keyword extraction algorithm.
-# One file, no package structure yet. Just the brain.
-
+# extractor.py  —  Phase 2 (revised with MMR)
 from __future__ import annotations
 
 import re
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
-# ── Constants ────────────────────────────────────────────────────────────────
-
 MODEL_NAME = "all-MiniLM-L6-v2"
 
-# Words that carry no meaning on their own — we strip these from candidates.
-# A phrase made entirely of stopwords (e.g. "the of") gets filtered out.
 STOPWORDS = {
     "a", "an", "the", "and", "or", "but", "in", "on", "at", "to", "for",
     "of", "with", "by", "from", "is", "are", "was", "were", "be", "been",
@@ -23,60 +16,40 @@ STOPWORDS = {
     "then", "also", "into", "about", "over", "after", "before", "between",
 }
 
-# ── Model loader ─────────────────────────────────────────────────────────────
-
-# We store the model in a module-level variable so it loads only once per
-# Python session — not once per function call. This matters: loading takes
-# ~1 second. Calling extract() 10 times should pay that cost only once.
 _model: SentenceTransformer | None = None
 
 
 def _get_model() -> SentenceTransformer:
-    """Return the cached model, loading it on first call."""
     global _model
     if _model is None:
         _model = SentenceTransformer(MODEL_NAME, local_files_only=True)
     return _model
 
 
-# ── Candidate extraction ─────────────────────────────────────────────────────
-
 def _clean(text: str) -> str:
-    """Lowercase and strip punctuation, keeping spaces and hyphens."""
     text = text.lower()
-    text = re.sub(r"[^\w\s\-]", " ", text)   # remove punctuation
-    text = re.sub(r"\s+", " ", text)          # collapse whitespace
+    text = re.sub(r"[^\w\s\-]", " ", text)
+    text = re.sub(r"\s+", " ", text)
     return text.strip()
 
 
 def _extract_candidates(text: str, max_words: int = 3) -> list[str]:
-    """
-    Pull noun-phrase-like candidates from text.
-
-    Strategy: slide a window of 1, 2, and 3 words across the cleaned text,
-    keep only windows where:
-      - at least one word is NOT a stopword (has real meaning)
-      - no token is a single character (strips stray letters)
-      - the phrase has not been seen before (deduplication)
-
-    This is intentionally simple — no POS tagger, no spaCy dependency.
-    It catches "mobile money", "fintech hub", "crop prediction" reliably.
-    """
     words = _clean(text).split()
     seen: set[str] = set()
     candidates: list[str] = []
 
-    for n in range(1, max_words + 1):           # window sizes: 1, 2, 3
+    for n in range(1, max_words + 1):
         for i in range(len(words) - n + 1):
             window = words[i : i + n]
 
-            # Skip if every word is a stopword
             if all(w in STOPWORDS for w in window):
                 continue
-
-            # Skip single-character tokens
             if any(len(w) <= 1 for w in window):
                 continue
+            if n == 1:
+                word = window[0]
+                if word in STOPWORDS or len(word) < 4:
+                    continue
 
             phrase = " ".join(window)
             if phrase not in seen:
@@ -86,28 +59,60 @@ def _extract_candidates(text: str, max_words: int = 3) -> list[str]:
     return candidates
 
 
-# ── Embedding + ranking ──────────────────────────────────────────────────────
-
 def _embed(texts: list[str]) -> np.ndarray:
-    """
-    Embed a list of strings in one batch call.
-    Batching is faster than calling model.encode() once per string.
-    normalize_embeddings=True means cosine similarity = dot product.
-    """
     model = _get_model()
     return model.encode(texts, normalize_embeddings=True, show_progress_bar=False)
 
 
 def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> np.ndarray:
-    """
-    Dot product between one vector (a) and a matrix of vectors (b).
-    Returns a 1-D array of similarity scores, one per row in b.
-    This works because both a and b are already L2-normalised.
-    """
-    return b @ a   # shape: (n_candidates,)
+    return b @ a
 
 
-# ── Public API ───────────────────────────────────────────────────────────────
+def _mmr(
+    doc_vector: np.ndarray,
+    candidate_vectors: np.ndarray,
+    candidates: list[str],
+    top_n: int,
+    min_score: float,
+    diversity: float = 0.7,
+) -> list[dict]:
+    relevance = candidate_vectors @ doc_vector
+
+    valid = np.where(relevance >= min_score)[0]
+    if len(valid) == 0:
+        return []
+
+    selected_indices: list[int] = []
+    remaining = list(valid)
+
+    for _ in range(min(top_n, len(valid))):
+        if not remaining:
+            break
+
+        if not selected_indices:
+            best = max(remaining, key=lambda i: relevance[i])
+        else:
+            selected_vectors = candidate_vectors[selected_indices]
+            best_score = -np.inf
+            best = remaining[0]
+
+            for i in remaining:
+                rel = relevance[i]
+                sims_to_selected = candidate_vectors[i] @ selected_vectors.T
+                max_redundancy = float(np.max(sims_to_selected))
+                mmr_score = diversity * rel - (1 - diversity) * max_redundancy
+                if mmr_score > best_score:
+                    best_score = mmr_score
+                    best = i
+
+        selected_indices.append(best)
+        remaining.remove(best)
+
+    return [
+        {"keyword": candidates[i], "score": round(float(relevance[i]), 4)}
+        for i in selected_indices
+    ]
+
 
 def extract(
     text: str,
@@ -116,60 +121,30 @@ def extract(
     max_words: int = 3,
 ) -> list[dict]:
     """
-    Extract the most semantically relevant keywords from a text.
+    Extract semantically relevant keywords from text using MMR ranking.
 
     Parameters
     ----------
-    text      : The input document (any length).
-    top_n     : Maximum number of keywords to return.
-    min_score : Minimum cosine similarity to include a keyword (0.0–1.0).
-                Lower = more keywords, less precise.
-                Higher = fewer keywords, more precise.
-    max_words : Maximum words per candidate phrase (1–3 recommended).
+    text      : Input document.
+    top_n     : Max keywords to return.
+    min_score : Minimum cosine similarity threshold (0.0–1.0).
+    max_words : Max words per candidate phrase.
 
     Returns
     -------
-    List of dicts, each with keys:
-        "keyword" : str   — the keyword phrase
-        "score"   : float — cosine similarity to the document (0.0–1.0)
-
-    Example
-    -------
-    >>> results = extract("Tanzania is a hub for mobile money fintech.")
-    >>> results[0]
-    {'keyword': 'mobile money', 'score': 0.512}
+    List of {"keyword": str, "score": float} dicts, best first.
     """
     if not text or not text.strip():
         return []
 
-    # Step 1: get candidates
     candidates = _extract_candidates(text, max_words=max_words)
     if not candidates:
         return []
 
-    # Step 2: embed document + all candidates in one batch
     all_texts = [text] + candidates
     embeddings = _embed(all_texts)
 
-    doc_vector = embeddings[0]            # shape: (384,)
-    candidate_vectors = embeddings[1:]    # shape: (n_candidates, 384)
+    doc_vector = embeddings[0]
+    candidate_vectors = embeddings[1:]
 
-    # Step 3: score every candidate against the document
-    scores = _cosine_similarity(doc_vector, candidate_vectors)
-
-    # Step 4: sort by score descending, apply threshold, take top_n
-    ranked_indices = np.argsort(scores)[::-1]
-
-    results = []
-    for idx in ranked_indices:
-        if len(results) >= top_n:
-            break
-        score = float(scores[idx])
-        if score < min_score:
-            break
-        results.append({
-            "keyword": candidates[idx],
-            "score": round(score, 4),
-        })
-
-    return results
+    return _mmr(doc_vector, candidate_vectors, candidates, top_n=top_n, min_score=min_score)
