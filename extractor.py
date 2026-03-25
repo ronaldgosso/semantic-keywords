@@ -1,4 +1,3 @@
-# extractor.py  —  Phase 2 (with model options)
 from __future__ import annotations
 
 import re
@@ -7,7 +6,6 @@ from sentence_transformers import SentenceTransformer
 
 # ── Model registry ───────────────────────────────────────────────────────────
 # Keys are the user-facing aliases. Values are HuggingFace model identifiers.
-# Add new models here without touching any other part of the code.
 
 MODEL_REGISTRY: dict[str, str] = {
     "fast":     "all-MiniLM-L6-v2",    # 90MB  — default
