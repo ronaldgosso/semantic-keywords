@@ -2,15 +2,17 @@
 """Command-line interface for semantic-keywords."""
 
 from __future__ import annotations
+
 import argparse
 import sys
 import textwrap
+
 from .extractor import (
-    extract,
-    detect_available_models,
-    prompt_model_selection,
-    MODEL_REGISTRY,
     DEFAULT_MODEL,
+    MODEL_REGISTRY,
+    detect_available_models,
+    extract,
+    prompt_model_selection,
 )
 
 BANNER = """
@@ -20,6 +22,7 @@ BANNER = """
   ╚══════════════════════════════════════════════╝
 """
 
+
 def _print_results(results: list[dict], top_n: int) -> None:
     """Render keyword results as a clean ranked table."""
     if not results:
@@ -27,14 +30,14 @@ def _print_results(results: list[dict], top_n: int) -> None:
         return
 
     actual = results[:top_n]
-    width  = max(len(r["keyword"]) for r in actual) + 2
+    width = max(len(r["keyword"]) for r in actual) + 2
 
     print(f"\n  Top {len(actual)} keyword{'s' if len(actual) != 1 else ''}:\n")
     print(f"  {'#':<4} {'Keyword':<{width}} {'Score':<8} Relevance")
     print(f"  {'─'*2}   {'─'*(width-2)}   {'─'*6}   {'─'*22}")
 
     for rank, r in enumerate(actual, start=1):
-        bar   = "█" * int(r["score"] * 28)
+        bar = "█" * int(r["score"] * 28)
         empty = "░" * (28 - len(bar))
         print(f"  {rank:<4} {r['keyword']:<{width}} {r['score']:.4f}   {bar}{empty}")
 
@@ -127,7 +130,7 @@ def _interactive_mode(model: str) -> None:
 
         # Show a short preview of the input text
         preview = textwrap.shorten(text, width=72, placeholder="...")
-        print(f"  Input : \"{preview}\"")
+        print(f'  Input : "{preview}"')
         print(f"  Words : {len(text.split())}")
 
         _print_results(results, top_n)
@@ -165,14 +168,16 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Text to extract keywords from. Omit to enter interactive mode.",
     )
     parser.add_argument(
-        "--top", "-n",
+        "--top",
+        "-n",
         type=int,
         default=5,
         metavar="N",
         help="Maximum number of keywords to return (default: 5).",
     )
     parser.add_argument(
-        "--model", "-m",
+        "--model",
+        "-m",
         default=None,
         choices=model_choices,
         metavar="MODEL",
@@ -208,7 +213,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     parser = _build_parser()
-    args   = parser.parse_args()
+    args = parser.parse_args()
 
     # ── --list-models ─────────────────────────────────────────────────────────
     if args.list_models:
@@ -225,7 +230,7 @@ def main() -> None:
                 f"  {status:<14}"
                 f"  {info['note']}"
             )
-        print(f"\n  * = default  |  download missing models: python download_model.py\n")
+        print("\n  * = default  |  download missing models: python download_model.py\n")
         sys.exit(0)
 
     # ── Resolve model (shared by all modes) ───────────────────────────────────
@@ -271,7 +276,7 @@ def main() -> None:
         _print_results(results, args.top)
     else:
         # Minimal output: one keyword per line (pipe-friendly)
-        for r in results[:args.top]:
+        for r in results[: args.top]:
             print(r["keyword"])
 
 
