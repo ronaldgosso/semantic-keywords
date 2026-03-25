@@ -3,8 +3,9 @@
 
 from __future__ import annotations
 
-import re
 import os
+import re
+
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
@@ -13,30 +14,80 @@ from sentence_transformers import SentenceTransformer
 MODEL_REGISTRY: dict[str, dict[str, str]] = {
     "fast": {
         "hf_name": "all-MiniLM-L6-v2",
-        "size":    "90MB",
-        "note":    "fastest, great for most use cases",
+        "size": "90MB",
+        "note": "fastest, great for most use cases",
     },
     "balanced": {
         "hf_name": "all-MiniLM-L12-v2",
-        "size":    "120MB",
-        "note":    "slightly better accuracy, still fast",
+        "size": "120MB",
+        "note": "slightly better accuracy, still fast",
     },
     "accurate": {
         "hf_name": "all-mpnet-base-v2",
-        "size":    "420MB",
-        "note":    "best quality, slower on CPU",
+        "size": "420MB",
+        "note": "best quality, slower on CPU",
     },
 }
 
 DEFAULT_MODEL = "fast"
 
 STOPWORDS = {
-    "a", "an", "the", "and", "or", "but", "in", "on", "at", "to", "for",
-    "of", "with", "by", "from", "is", "are", "was", "were", "be", "been",
-    "being", "have", "has", "had", "do", "does", "did", "will", "would",
-    "could", "should", "may", "might", "this", "that", "these", "those",
-    "it", "its", "as", "up", "out", "not", "no", "so", "if", "than",
-    "then", "also", "into", "about", "over", "after", "before", "between",
+    "a",
+    "an",
+    "the",
+    "and",
+    "or",
+    "but",
+    "in",
+    "on",
+    "at",
+    "to",
+    "for",
+    "of",
+    "with",
+    "by",
+    "from",
+    "is",
+    "are",
+    "was",
+    "were",
+    "be",
+    "been",
+    "being",
+    "have",
+    "has",
+    "had",
+    "do",
+    "does",
+    "did",
+    "will",
+    "would",
+    "could",
+    "should",
+    "may",
+    "might",
+    "this",
+    "that",
+    "these",
+    "those",
+    "it",
+    "its",
+    "as",
+    "up",
+    "out",
+    "not",
+    "no",
+    "so",
+    "if",
+    "than",
+    "then",
+    "also",
+    "into",
+    "about",
+    "over",
+    "after",
+    "before",
+    "between",
 }
 
 _model_cache: dict[str, SentenceTransformer] = {}
@@ -72,9 +123,7 @@ def _is_model_cached(hf_name: str) -> bool:
 def detect_available_models() -> dict[str, dict[str, str]]:
     """Return only the models that are downloaded and ready to use offline."""
     return {
-        alias: info
-        for alias, info in MODEL_REGISTRY.items()
-        if _is_model_cached(info["hf_name"])
+        alias: info for alias, info in MODEL_REGISTRY.items() if _is_model_cached(info["hf_name"])
     }
 
 
@@ -95,15 +144,15 @@ def prompt_model_selection() -> str:
 
     if len(available) == 1:
         alias = next(iter(available))
-        info  = available[alias]
+        info = available[alias]
         print(f"\n  Auto-selected: [{alias}]  {info['hf_name']}  ({info['size']})")
-        print(f"  Tip: download more models with python download_model.py\n")
+        print("  Tip: download more models with python download_model.py\n")
         return alias
 
     aliases = list(available.keys())
     print("\n  Available models (downloaded and ready):\n")
     for i, alias in enumerate(aliases, start=1):
-        info   = available[alias]
+        info = available[alias]
         marker = " *" if alias == DEFAULT_MODEL else "  "
         print(
             f"  {marker} [{i}]  {alias:<10}"
@@ -111,7 +160,7 @@ def prompt_model_selection() -> str:
             f"  {info['size']:<7}"
             f"  {info['note']}"
         )
-    print(f"\n       * = default\n")
+    print("\n       * = default\n")
 
     while True:
         raw = input(
@@ -139,9 +188,7 @@ def _get_model(model: str = DEFAULT_MODEL) -> SentenceTransformer:
     hf_name = _resolve_model_name(model)
     if hf_name not in _model_cache:
         try:
-            _model_cache[hf_name] = SentenceTransformer(
-                hf_name, local_files_only=True
-            )
+            _model_cache[hf_name] = SentenceTransformer(hf_name, local_files_only=True)
         except Exception:
             raise OSError(
                 f"Model '{hf_name}' not found in local cache.\n"
@@ -218,8 +265,7 @@ def _mmr(
         selected_indices.append(best)
         remaining.remove(best)
     return [
-        {"keyword": candidates[i], "score": round(float(relevance[i]), 4)}
-        for i in selected_indices
+        {"keyword": candidates[i], "score": round(float(relevance[i]), 4)} for i in selected_indices
     ]
 
 
@@ -260,11 +306,15 @@ def extract(
         return []
     all_texts = [text] + candidates
     embeddings = _embed(all_texts, model=model)
-    doc_vector        = embeddings[0]
+    doc_vector = embeddings[0]
     candidate_vectors = embeddings[1:]
     return _mmr(
-        doc_vector, candidate_vectors, candidates,
-        top_n=top_n, min_score=min_score, diversity=diversity,
+        doc_vector,
+        candidate_vectors,
+        candidates,
+        top_n=top_n,
+        min_score=min_score,
+        diversity=diversity,
     )
 
 
