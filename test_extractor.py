@@ -1,5 +1,3 @@
-# test_extractor.py
-# Run: python test_extractor.py
 # Detects downloaded models, prompts you to pick one, then runs all tests.
 
 from extractor import extract, list_models, prompt_model_selection
