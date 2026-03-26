@@ -14,7 +14,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group:            "pages"
+  group:              "pages"
   cancel-in-progress: true
 
 jobs:
@@ -31,6 +31,8 @@ jobs:
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true      # enables Pages via GitHub Actions if not already on
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
