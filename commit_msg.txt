@@ -1,8 +1,0 @@
-feat: add file extraction support for PDF, TXT, and MD files
-
-- Add `semantic_keywords/reader.py` with `read_file` to handle text/md and PDF (via optional `pypdf` dependency).
-- Add `semantic_keywords/file_api.py` with `extract_file` for an integrated high-level API.
-- Update `cli.py` to support file paths (`--file`) and guided interactive file input.
-- Update `pyproject.toml` to bump version to 0.2.0 and add optional `pypdf` dependency.
-- Update `test_extractor.py` to include file extraction scenarios.
-- Export new modules and endpoints in `__init__.py`.
