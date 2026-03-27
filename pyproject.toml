@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name            = "semantic-keywords"
-version         = "0.1.0"
+version         = "0.2.0"
 description     = "AI-powered semantic keyword extraction using sentence embeddings and MMR"
 readme          = "README.md"
 license         = { text = "MIT" }
@@ -16,7 +16,7 @@ authors = [
 
 keywords = [
     "keywords", "nlp", "semantic", "embeddings",
-    "sentence-transformers", "mmr", "text-analysis",
+    "sentence-transformers", "mmr", "text-analysis", "pdf",
 ]
 
 classifiers = [
@@ -32,18 +32,25 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
+# Core deps — pypdf is OPTIONAL (only needed for PDF files)
 dependencies = [
     "sentence-transformers>=2.7",
     "numpy>=1.24",
 ]
 
 [project.optional-dependencies]
+# pip install semantic-keywords[files]
+files = [
+    "pypdf>=4.0",
+]
+# pip install semantic-keywords[dev]
 dev = [
     "ruff>=0.4",
     "mypy>=1.9",
     "black>=24.0",
     "build>=1.0",
     "twine>=5.0",
+    "pypdf>=4.0",
 ]
 
 [project.urls]
@@ -58,7 +65,6 @@ semkw = "semantic_keywords.cli:main"
 where   = ["."]
 include = ["semantic_keywords*"]
 
-# ── Ruff ──────────────────────────────────────────────────────────────────────
 [tool.ruff]
 line-length    = 100
 target-version = "py39"
@@ -70,15 +76,13 @@ ignore = ["E501"]
 [tool.ruff.lint.isort]
 known-first-party = ["semantic_keywords"]
 
-# ── Mypy ──────────────────────────────────────────────────────────────────────
 [tool.mypy]
-python_version         = "3.10"
+python_version         = "3.9"
 warn_return_any        = true
 warn_unused_configs    = true
 ignore_missing_imports = true
 strict                 = false
 
-# ── Black ─────────────────────────────────────────────────────────────────────
 [tool.black]
 line-length    = 100
 target-version = ["py39"]

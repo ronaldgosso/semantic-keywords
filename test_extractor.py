@@ -1,8 +1,20 @@
 # test_extractor.py
-# Detects downloaded models, prompts you to pick one, runs all tests,
-# then drops into a live interactive session so you can try your own text.
+# Run: python test_extractor.py
+# Detects downloaded models, prompts you to pick one, runs all tests
+# including file-based extraction, then drops into a live demo.
 
-from semantic_keywords import extract, list_models, prompt_model_selection
+from __future__ import annotations
+import os
+import tempfile
+from pathlib import Path
+
+from semantic_keywords import (
+    extract,
+    extract_file,
+    read_file,
+    list_models,
+    prompt_model_selection,
+)
 
 # ── Header ────────────────────────────────────────────────────────────────────
 print("=" * 62)
@@ -27,9 +39,9 @@ def show_results(results: list[dict], top_n: int = 5) -> None:
     print()
 
 
-# ── Test cases ────────────────────────────────────────────────────────────────
+# ── Text-based tests ──────────────────────────────────────────────────────────
 
-TESTS = [
+TEXT_TESTS = [
     {
         "label": "Tech / Africa",
         "text": """
@@ -63,23 +75,11 @@ TESTS = [
     {
         "label": "Top 3 only",
         "text": """
-            Python is a high-level programming language known for its simplicity and
-            readability. It is widely used in data science, web development, automation,
+            Python is a high-level programming language known for its simplicity.
+            It is widely used in data science, web development, automation,
             and artificial intelligence research.
         """,
         "top_n": 3,
-    },
-    {
-        "label": "Top 8 — long text",
-        "text": """
-            Blockchain technology underpins cryptocurrencies like Bitcoin and Ethereum,
-            providing a decentralised ledger for secure peer-to-peer transactions.
-            Smart contracts automate agreements without intermediaries. Decentralised
-            finance (DeFi) platforms allow lending, borrowing, and trading of digital
-            assets without traditional banks. Non-fungible tokens (NFTs) use blockchain
-            to verify ownership of digital art and collectibles.
-        """,
-        "top_n": 8,
     },
     {
         "label": "Short phrase (edge case)",
@@ -92,7 +92,7 @@ TESTS = [
         "top_n": 5,
     },
     {
-        "label": "diversity=0.3 vs diversity=0.9  (same text)",
+        "label": "diversity=0.3 vs diversity=0.9",
         "text": """
             Tanzania is rapidly developing its technology sector, with Dar es Salaam
             emerging as a fintech hub. Mobile money platforms like M-Pesa have
@@ -103,25 +103,129 @@ TESTS = [
     },
 ]
 
-print(f"  Running {len(TESTS)} tests with model: [{chosen_model}]\n")
+print(f"  Running text tests with model: [{chosen_model}]\n")
 print("=" * 62)
 
-for test in TESTS:
+for test in TEXT_TESTS:
     label = test["label"]
     text  = test["text"]
     top_n = test["top_n"]
-
     print(f"\n── {label} {'─' * max(0, 56 - len(label))}")
 
     if test.get("compare_diversity"):
-        for div, tag in [(0.3, "diversity=0.3  (more relevant, less varied)"),
-                         (0.9, "diversity=0.9  (more varied, less repetitive)")]:
+        for div, tag in [
+            (0.3, "diversity=0.3  (more relevant)"),
+            (0.9, "diversity=0.9  (more varied)"),
+        ]:
             print(f"\n  [{tag}]")
-            r = extract(text, model=chosen_model, top_n=top_n, diversity=div)
-            show_results(r, top_n)
+            show_results(extract(text, model=chosen_model, top_n=top_n, diversity=div), top_n)
     else:
         results = extract(text, model=chosen_model, top_n=top_n) if text else []
         show_results(results, top_n)
+
+# ── File-based tests ──────────────────────────────────────────────────────────
+
+print("\n" + "=" * 62)
+print("  File extraction tests")
+print("=" * 62)
+
+# ── Test 1: .txt file (created on the fly) ────────────────────────────────────
+print("\n── extract_file()  →  .txt  ──────────────────────────────────")
+
+TXT_CONTENT = """
+Tanzania is rapidly developing its technology sector, with Dar es Salaam
+emerging as a fintech hub. Mobile money platforms like M-Pesa have
+transformed financial access across East Africa. Local startups are building
+AI-powered agricultural tools to help smallholder farmers with crop prediction.
+"""
+
+with tempfile.NamedTemporaryFile(
+    mode="w", suffix=".txt", delete=False, encoding="utf-8"
+) as tmp:
+    tmp.write(TXT_CONTENT)
+    tmp_txt = tmp.name
+
+try:
+    result = extract_file(tmp_txt, top_n=5, model=chosen_model)
+    print(f"  File   : {result['file']}")
+    print(f"  Size   : {result['size_kb']} KB")
+    print(f"  Words  : {result['words']}")
+    print(f"  Model  : {result['model']}")
+    show_results(result["keywords"], 5)
+finally:
+    os.unlink(tmp_txt)
+
+# ── Test 2: .md file ──────────────────────────────────────────────────────────
+print("\n── extract_file()  →  .md  ───────────────────────────────────")
+
+MD_CONTENT = """
+# Blockchain and Decentralised Finance
+
+Blockchain technology underpins cryptocurrencies like Bitcoin and Ethereum,
+providing a decentralised ledger for secure peer-to-peer transactions.
+Smart contracts automate agreements without intermediaries. DeFi platforms
+allow lending, borrowing, and trading of digital assets without traditional banks.
+Non-fungible tokens (NFTs) use blockchain to verify ownership of digital art.
+"""
+
+with tempfile.NamedTemporaryFile(
+    mode="w", suffix=".md", delete=False, encoding="utf-8"
+) as tmp:
+    tmp.write(MD_CONTENT)
+    tmp_md = tmp.name
+
+try:
+    result = extract_file(tmp_md, top_n=5, model=chosen_model)
+    print(f"  File   : {result['file']}")
+    print(f"  Words  : {result['words']}")
+    show_results(result["keywords"], 5)
+finally:
+    os.unlink(tmp_md)
+
+# ── Test 3: PDF (if pypdf installed) ─────────────────────────────────────────
+print("\n── extract_file()  →  .pdf  (skipped if pypdf not installed) ─")
+try:
+    import pypdf  # noqa: F401
+    print("  pypdf detected — to test PDF extraction pass a real PDF path:")
+    print("  result = extract_file('your_file.pdf', top_n=10)")
+    print("  (automated PDF creation requires reportlab; run manually instead)\n")
+except ImportError:
+    print("  pypdf not installed — PDF support inactive.")
+    print("  To enable:  pip install pypdf\n")
+
+# ── Test 4: read_file() directly ─────────────────────────────────────────────
+print("\n── read_file()  →  returns raw text  ────────────────────────")
+with tempfile.NamedTemporaryFile(
+    mode="w", suffix=".txt", delete=False, encoding="utf-8"
+) as tmp:
+    tmp.write("Nairobi is a growing hub for fintech and mobile payments in Africa.")
+    tmp_read = tmp.name
+
+try:
+    text = read_file(tmp_read)
+    preview = text.strip()[:80]
+    print(f"  Extracted text: \"{preview}\"")
+    print(f"  Word count    : {len(text.split())}\n")
+finally:
+    os.unlink(tmp_read)
+
+# ── Test 5: error handling ────────────────────────────────────────────────────
+print("\n── Error handling  ───────────────────────────────────────────")
+
+tests_errors = [
+    ("nonexistent.pdf",  FileNotFoundError, "missing file"),
+    ("report.xyz",       ValueError,        "unsupported extension"),
+]
+
+for bad_path, expected_exc, label in tests_errors:
+    try:
+        read_file(bad_path)
+        print(f"  FAIL  [{label}] — no exception raised")
+    except expected_exc as e:
+        print(f"  PASS  [{label}] — {type(e).__name__}: {str(e)[:60]}")
+    except Exception as e:
+        print(f"  FAIL  [{label}] — unexpected {type(e).__name__}: {e}")
+print()
 
 # ── Model registry ────────────────────────────────────────────────────────────
 print("── Model registry " + "─" * 44)
@@ -139,40 +243,67 @@ print(f"\n  * = model used in this run\n")
 print("=" * 62)
 
 # ── Live demo ─────────────────────────────────────────────────────────────────
-print("\n  All tests passed. Try the package yourself:\n")
+print("\n  All tests done. Try it yourself:\n")
+print("  Options:")
+print("    [1]  Type or paste text")
+print("    [2]  Enter a file path  (.pdf / .txt / .md)")
+print("    [q]  Quit\n")
 
 while True:
-    print("  Enter text to extract keywords from.")
-    print("  Press Enter twice when done. Type 'quit' to exit.\n")
+    choice = input("  Choose [1/2/q]: ").strip().lower()
 
-    lines: list[str] = []
-    while True:
-        try:
-            line = input()
-        except EOFError:
-            break
-        if line.strip().lower() == "quit":
-            lines = []
-            break
-        if line == "" and lines and lines[-1] == "":
-            break
-        lines.append(line)
-
-    text = "\n".join(lines).strip()
-
-    if not text:
-        print("\n  Exiting. Goodbye!\n")
+    if choice == "q" or choice == "":
+        print("\n  Goodbye!\n")
         break
 
+    if choice not in ("1", "2"):
+        print("  Enter 1, 2, or q.")
+        continue
+
+    text = ""
+
+    if choice == "1":
+        print("\n  Type/paste your text. Press Enter twice when done.\n")
+        lines: list[str] = []
+        while True:
+            try:
+                line = input()
+            except EOFError:
+                break
+            if line == "" and lines and lines[-1] == "":
+                break
+            lines.append(line)
+        text = "\n".join(lines).strip()
+        if not text:
+            print("  No text entered.\n")
+            continue
+
+    elif choice == "2":
+        raw = input("\n  File path: ").strip().strip('"')
+        if not raw:
+            print("  No path entered.\n")
+            continue
+        p = Path(raw)
+        if not p.exists():
+            print(f"  Not found: '{raw}'\n")
+            continue
+        print(f"  Reading '{p.name}' ...")
+        try:
+            text = read_file(p)
+            print(f"  {len(text.split())} words extracted.\n")
+        except (ImportError, ValueError) as e:
+            print(f"  Error: {e}\n")
+            continue
+
     while True:
-        raw = input("\n  Top N keywords? [default 5]: ").strip()
-        if raw == "":
+        raw_n = input("  Top N keywords? [default 5]: ").strip()
+        if raw_n == "":
             top_n = 5
             break
-        if raw.isdigit() and int(raw) >= 1:
-            top_n = int(raw)
+        if raw_n.isdigit() and int(raw_n) >= 1:
+            top_n = int(raw_n)
             break
-        print("  Please enter a positive whole number.")
+        print("  Enter a positive number.")
 
     print(f"\n  Extracting top {top_n} keywords  [model: {chosen_model}] ...\n")
     results = extract(text, model=chosen_model, top_n=top_n)

@@ -1,0 +1,1102 @@
+﻿diff --git a/pyproject.toml b/pyproject.toml
+index 0d8d5ff..746f8e8 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
+ 
+ [project]
+ name            = "semantic-keywords"
+-version         = "0.1.0"
++version         = "0.2.0"
+ description     = "AI-powered semantic keyword extraction using sentence embeddings and MMR"
+ readme          = "README.md"
+ license         = { text = "MIT" }
+@@ -16,7 +16,7 @@ authors = [
+ 
+ keywords = [
+     "keywords", "nlp", "semantic", "embeddings",
+-    "sentence-transformers", "mmr", "text-analysis",
++    "sentence-transformers", "mmr", "text-analysis", "pdf",
+ ]
+ 
+ classifiers = [
+@@ -32,18 +32,25 @@ classifiers = [
+     "Topic :: Scientific/Engineering :: Artificial Intelligence",
+ ]
+ 
++# Core deps ΓÇö pypdf is OPTIONAL (only needed for PDF files)
+ dependencies = [
+     "sentence-transformers>=2.7",
+     "numpy>=1.24",
+ ]
+ 
+ [project.optional-dependencies]
++# pip install semantic-keywords[files]
++files = [
++    "pypdf>=4.0",
++]
++# pip install semantic-keywords[dev]
+ dev = [
+     "ruff>=0.4",
+     "mypy>=1.9",
+     "black>=24.0",
+     "build>=1.0",
+     "twine>=5.0",
++    "pypdf>=4.0",
+ ]
+ 
+ [project.urls]
+@@ -58,7 +65,6 @@ semkw = "semantic_keywords.cli:main"
+ where   = ["."]
+ include = ["semantic_keywords*"]
+ 
+-# ΓöÇΓöÇ Ruff ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+ [tool.ruff]
+ line-length    = 100
+ target-version = "py39"
+@@ -70,15 +76,13 @@ ignore = ["E501"]
+ [tool.ruff.lint.isort]
+ known-first-party = ["semantic_keywords"]
+ 
+-# ΓöÇΓöÇ Mypy ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+ [tool.mypy]
+-python_version         = "3.10"
++python_version         = "3.9"
+ warn_return_any        = true
+ warn_unused_configs    = true
+ ignore_missing_imports = true
+ strict                 = false
+ 
+-# ΓöÇΓöÇ Black ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+ [tool.black]
+ line-length    = 100
+ target-version = ["py39"]
+\ No newline at end of file
+diff --git a/semantic_keywords/__init__.py b/semantic_keywords/__init__.py
+index 03cb6b8..418419d 100644
+--- a/semantic_keywords/__init__.py
++++ b/semantic_keywords/__init__.py
+@@ -3,23 +3,42 @@
+ semantic-keywords
+ ~~~~~~~~~~~~~~~~~
+ AI-powered semantic keyword extraction using sentence embeddings and MMR.
++
++Quick start
++-----------
++    from semantic_keywords import extract
++    results = extract("Tanzania fintech mobile money startups", top_n=5)
++
++File extraction
++---------------
++    from semantic_keywords import extract_file
++    results = extract_file("report.pdf", top_n=10)
+ """
+ 
+ from .extractor import (
+-    DEFAULT_MODEL,
+-    MODEL_REGISTRY,
+-    detect_available_models,
+     extract,
+-    list_models,
++    detect_available_models,
+     prompt_model_selection,
++    list_models,
++    MODEL_REGISTRY,
++    DEFAULT_MODEL,
+ )
++from .reader import read_file, file_info
++from .file_api import extract_file
++
++__version__ = "0.2.0"
+ 
+-__version__ = "0.1.0"
+ __all__ = [
++    # Core extraction
+     "extract",
++    "extract_file",
++    # File reading
++    "read_file",
++    "file_info",
++    # Model utilities
+     "detect_available_models",
+     "prompt_model_selection",
+     "list_models",
+     "MODEL_REGISTRY",
+     "DEFAULT_MODEL",
+-]
++]
+\ No newline at end of file
+diff --git a/semantic_keywords/cli.py b/semantic_keywords/cli.py
+index 1746d8f..c2973f2 100644
+--- a/semantic_keywords/cli.py
++++ b/semantic_keywords/cli.py
+@@ -6,14 +6,17 @@ from __future__ import annotations
+ import argparse
+ import sys
+ import textwrap
++from pathlib import Path
+ 
+ from .extractor import (
+-    DEFAULT_MODEL,
+-    MODEL_REGISTRY,
+-    detect_available_models,
+     extract,
++    detect_available_models,
+     prompt_model_selection,
++    MODEL_REGISTRY,
++    DEFAULT_MODEL,
+ )
++from .reader import read_file, file_info, SUPPORTED_EXTENSIONS
++from .file_api import extract_file
+ 
+ BANNER = """
+   ΓòöΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòù
+@@ -30,51 +33,127 @@ def _print_results(results: list[dict], top_n: int) -> None:
+         return
+ 
+     actual = results[:top_n]
+-    width = max(len(r["keyword"]) for r in actual) + 2
++    width  = max(len(r["keyword"]) for r in actual) + 2
+ 
+     print(f"\n  Top {len(actual)} keyword{'s' if len(actual) != 1 else ''}:\n")
+     print(f"  {'#':<4} {'Keyword':<{width}} {'Score':<8} Relevance")
+     print(f"  {'ΓöÇ'*2}   {'ΓöÇ'*(width-2)}   {'ΓöÇ'*6}   {'ΓöÇ'*22}")
+ 
+     for rank, r in enumerate(actual, start=1):
+-        bar = "Γûê" * int(r["score"] * 28)
++        bar   = "Γûê" * int(r["score"] * 28)
+         empty = "Γûæ" * (28 - len(bar))
+         print(f"  {rank:<4} {r['keyword']:<{width}} {r['score']:.4f}   {bar}{empty}")
+ 
+     print()
+ 
+ 
++def _print_file_header(info: dict, model: str) -> None:
++    """Print a summary line before file extraction results."""
++    print(f"\n  File  : {info['name']}")
++    print(f"  Size  : {info['size_kb']} KB")
++    print(f"  Model : {model}")
++
++
++def _resolve_model(model_arg: str | None) -> str:
++    """Pick model from arg or auto-detect from downloaded models."""
++    if model_arg:
++        return model_arg
++    available = detect_available_models()
++    if not available:
++        print(
++            "\n  No models downloaded. Run: python download_model.py\n",
++            file=sys.stderr,
++        )
++        sys.exit(1)
++    return DEFAULT_MODEL if DEFAULT_MODEL in available else next(iter(available))
++
++
++# ΓöÇΓöÇ Interactive mode ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
++
+ def _interactive_mode(model: str) -> None:
+     """
+-    Fully guided interactive session:
+-      1. User pastes or types their text
+-      2. User picks top N
+-      3. Optional advanced flags
+-      4. Results printed
+-      5. Loop ΓÇö analyse another text or quit
++    Fully guided interactive session supporting both text input and file paths.
+     """
+     print(BANNER)
+ 
+     while True:
+-        # ΓöÇΓöÇ Text input ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+-        print("  Paste or type your text below.")
+-        print("  When done, press Enter twice (blank line = end of input).\n")
++        # ΓöÇΓöÇ Input method ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
++        print("  Input source:\n")
++        print("    [1]  Type or paste text")
++        ext_list = "  /  ".join(sorted(SUPPORTED_EXTENSIONS))
++        print(f"    [2]  Load from file  ({ext_list})")
++        print()
+ 
+-        lines: list[str] = []
+         while True:
+-            try:
+-                line = input()
+-            except EOFError:
+-                break
+-            if line == "" and lines and lines[-1] == "":
++            choice = input("  Choose [1/2]: ").strip()
++            if choice in ("1", "2"):
+                 break
+-            lines.append(line)
++            print("  Enter 1 or 2.")
+ 
+-        text = "\n".join(lines).strip()
++        text       = ""
++        input_label = ""
+ 
+-        if not text:
+-            print("\n  No text entered. Please try again.\n")
+-            continue
++        # ΓöÇΓöÇ Option 1: text input ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
++        if choice == "1":
++            print()
++            print("  Paste or type your text below.")
++            print("  Press Enter twice (blank line) when done.\n")
++
++            lines: list[str] = []
++            while True:
++                try:
++                    line = input()
++                except EOFError:
++                    break
++                if line == "" and lines and lines[-1] == "":
++                    break
++                lines.append(line)
++
++            text = "\n".join(lines).strip()
++            if not text:
++                print("\n  No text entered. Please try again.\n")
++                continue
++
++            preview     = textwrap.shorten(text, width=64, placeholder="...")
++            input_label = f'"{preview}"'
++
++        # ΓöÇΓöÇ Option 2: file input ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
++        else:
++            print()
++            while True:
++                raw_path = input("  File path (drag & drop or type): ").strip().strip('"')
++                if not raw_path:
++                    print("  No path entered. Try again.")
++                    continue
++
++                path = Path(raw_path)
++
++                if not path.exists():
++                    print(f"  File not found: '{raw_path}'. Check the path and try again.")
++                    continue
++
++                ext = path.suffix.lower()
++                if ext not in SUPPORTED_EXTENSIONS:
++                    print(
++                        f"  Unsupported format '{ext}'. "
++                        f"Supported: {', '.join(sorted(SUPPORTED_EXTENSIONS))}"
++                    )
++                    continue
++
++                # Try to read the file before continuing
++                print(f"\n  Reading '{path.name}' ...")
++                try:
++                    text = read_file(path)
++                except ImportError as e:
++                    print(f"\n  {e}")
++                    continue
++                except ValueError as e:
++                    print(f"\n  {e}")
++                    continue
++
++                info        = file_info(path)
++                input_label = f"{info['name']}  ({info['size_kb']} KB,  {len(text.split())} words)"
++                break
+ 
+         # ΓöÇΓöÇ Top N ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+         print()
+@@ -88,7 +167,7 @@ def _interactive_mode(model: str) -> None:
+                 break
+             print("  Please enter a whole number (e.g. 3, 5, 10).")
+ 
+-        # ΓöÇΓöÇ Optional advanced settings ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
++        # ΓöÇΓöÇ Optional advanced settings ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+         print()
+         adv = input("  Adjust advanced settings? (min-score / diversity) [y/N]: ").strip().lower()
+ 
+@@ -100,25 +179,21 @@ def _interactive_mode(model: str) -> None:
+             raw = input(f"  Min similarity score [0.0ΓÇô1.0, default {min_score}]: ").strip()
+             try:
+                 v = float(raw)
+-                if 0.0 <= v <= 1.0:
+-                    min_score = v
+-                else:
+-                    print("  Out of range ΓÇö using default 0.20.")
++                min_score = v if 0.0 <= v <= 1.0 else min_score
+             except ValueError:
+                 pass
+ 
+             raw = input(f"  Diversity factor   [0.0ΓÇô1.0, default {diversity}]: ").strip()
+             try:
+                 v = float(raw)
+-                if 0.0 <= v <= 1.0:
+-                    diversity = v
+-                else:
+-                    print("  Out of range ΓÇö using default 0.70.")
++                diversity = v if 0.0 <= v <= 1.0 else diversity
+             except ValueError:
+                 pass
+ 
+-        # ΓöÇΓöÇ Extract and display ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
++        # ΓöÇΓöÇ Extract & display ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+         print(f"\n  Extracting keywords  [model: {model}] ...\n")
++        print(f"  Input : {input_label}")
++        print(f"  Words : {len(text.split())}")
+ 
+         results = extract(
+             text,
+@@ -127,37 +202,39 @@ def _interactive_mode(model: str) -> None:
+             diversity=diversity,
+             model=model,
+         )
+-
+-        # Show a short preview of the input text
+-        preview = textwrap.shorten(text, width=72, placeholder="...")
+-        print(f'  Input : "{preview}"')
+-        print(f"  Words : {len(text.split())}")
+-
+         _print_results(results, top_n)
+ 
+-        # ΓöÇΓöÇ Loop or quit ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+-        again = input("  Analyse another text? [y/N]: ").strip().lower()
++        # ΓöÇΓöÇ Loop or quit ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
++        again = input("  Analyse another? [y/N]: ").strip().lower()
+         print()
+         if again != "y":
+             print("  Done. Goodbye!\n")
+             break
+ 
+ 
++# ΓöÇΓöÇ CLI argument parser ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
++
+ def _build_parser() -> argparse.ArgumentParser:
+     model_choices = list(MODEL_REGISTRY.keys())
++    ext_list      = "  ".join(sorted(SUPPORTED_EXTENSIONS))
+ 
+     parser = argparse.ArgumentParser(
+         prog="semkw",
+-        description="Extract semantic keywords from text using sentence embeddings + MMR.",
++        description="Extract semantic keywords from text or files using embeddings + MMR.",
+         formatter_class=argparse.RawDescriptionHelpFormatter,
+-        epilog=textwrap.dedent("""
++        epilog=textwrap.dedent(f"""
++        supported file types:
++          {ext_list}
++
+         examples:
+-          semkw                                         # interactive mode (guided prompts)
+-          semkw "Tanzania fintech mobile money"         # inline text, default top 5
+-          semkw "Tanzania fintech mobile money" -n 3    # top 3 only
+-          semkw "climate change arctic ice" --model accurate --scores
+-          semkw --list-models
+-          echo "neural networks deep learning" | semkw  # pipe from stdin
++          semkw                                            # interactive mode
++          semkw "Tanzania fintech mobile money"            # inline text
++          semkw "climate change arctic" -n 8 --scores     # top 8 with scores
++          semkw --file report.pdf                          # extract from PDF
++          semkw --file notes.txt -n 3 --model accurate    # txt, top 3, best model
++          semkw --file report.pdf --scores                 # PDF with score table
++          echo "neural networks deep learning" | semkw    # pipe from stdin
++          semkw --list-models                              # show model status
+         """),
+     )
+ 
+@@ -165,19 +242,23 @@ def _build_parser() -> argparse.ArgumentParser:
+         "text",
+         nargs="?",
+         default=None,
+-        help="Text to extract keywords from. Omit to enter interactive mode.",
++        help="Inline text to extract keywords from. Omit to enter interactive mode.",
++    )
++    parser.add_argument(
++        "--file", "-f",
++        default=None,
++        metavar="PATH",
++        help=f"Path to a file to extract keywords from ({ext_list}).",
+     )
+     parser.add_argument(
+-        "--top",
+-        "-n",
++        "--top", "-n",
+         type=int,
+         default=5,
+         metavar="N",
+-        help="Maximum number of keywords to return (default: 5).",
++        help="Maximum keywords to return (default: 5).",
+     )
+     parser.add_argument(
+-        "--model",
+-        "-m",
++        "--model", "-m",
+         default=None,
+         choices=model_choices,
+         metavar="MODEL",
+@@ -188,7 +269,7 @@ def _build_parser() -> argparse.ArgumentParser:
+         type=float,
+         default=0.20,
+         metavar="FLOAT",
+-        help="Minimum cosine similarity score (default: 0.20).",
++        help="Minimum cosine similarity score 0.0ΓÇô1.0 (default: 0.20).",
+     )
+     parser.add_argument(
+         "--diversity",
+@@ -200,20 +281,22 @@ def _build_parser() -> argparse.ArgumentParser:
+     parser.add_argument(
+         "--scores",
+         action="store_true",
+-        help="Show similarity scores in output.",
++        help="Show ranked score table instead of plain keyword list.",
+     )
+     parser.add_argument(
+         "--list-models",
+         action="store_true",
+-        help="Show all models and download status, then exit.",
++        help="Show all models and their download status, then exit.",
+     )
+ 
+     return parser
+ 
+ 
++# ΓöÇΓöÇ Entry point ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
++
+ def main() -> None:
+     parser = _build_parser()
+-    args = parser.parse_args()
++    args   = parser.parse_args()
+ 
+     # ΓöÇΓöÇ --list-models ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+     if args.list_models:
+@@ -230,40 +313,76 @@ def main() -> None:
+                 f"  {status:<14}"
+                 f"  {info['note']}"
+             )
+-        print("\n  * = default  |  download missing models: python download_model.py\n")
++        print(f"\n  * = default  |  download missing: python download_model.py\n")
+         sys.exit(0)
+ 
+-    # ΓöÇΓöÇ Resolve model (shared by all modes) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+-    if args.model:
+-        model = args.model
+-    else:
+-        available = detect_available_models()
+-        if not available:
++    model = _resolve_model(args.model)
++
++    # ΓöÇΓöÇ --file mode ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
++    if args.file:
++        path = Path(args.file)
++
++        # Validate before reading
++        if not path.exists():
++            print(f"\n  File not found: '{args.file}'\n", file=sys.stderr)
++            sys.exit(1)
++
++        ext = path.suffix.lower()
++        if ext not in SUPPORTED_EXTENSIONS:
+             print(
+-                "\n  No models downloaded. Run: python download_model.py\n",
++                f"\n  Unsupported file type '{ext}'.\n"
++                f"  Supported: {', '.join(sorted(SUPPORTED_EXTENSIONS))}\n",
+                 file=sys.stderr,
+             )
+             sys.exit(1)
+-        model = DEFAULT_MODEL if DEFAULT_MODEL in available else next(iter(available))
+ 
+-    # ΓöÇΓöÇ Mode: interactive (no text arg, no stdin pipe) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
++        info = file_info(path)
++        print(f"\n  Reading '{info['name']}'  ({info['size_kb']} KB) ...")
++
++        try:
++            result = extract_file(
++                path,
++                top_n=args.top,
++                min_score=args.min_score,
++                diversity=args.diversity,
++                model=model,
++            )
++        except ImportError as e:
++            print(f"\n  {e}", file=sys.stderr)
++            sys.exit(1)
++        except ValueError as e:
++            print(f"\n  {e}", file=sys.stderr)
++            sys.exit(1)
++
++        print(f"  Words : {result['words']}")
++        print(f"  Model : {result['model']}")
++
++        if args.scores:
++            _print_results(result["keywords"], args.top)
++        else:
++            print()
++            for kw in result["keywords"]:
++                print(kw["keyword"])
++            print()
++
++        return
++
++    # ΓöÇΓöÇ Interactive mode (no text arg, no file, no stdin pipe) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+     if args.text is None and sys.stdin.isatty():
+-        # Show model selection menu before entering interactive loop
+         model = prompt_model_selection()
+         _interactive_mode(model)
+         return
+ 
+-    # ΓöÇΓöÇ Mode: stdin pipe  (echo "text" | semkw) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
++    # ΓöÇΓöÇ Stdin pipe mode ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+     if args.text is None:
+         text = sys.stdin.read().strip()
+         if not text:
+             print("  No input received from stdin.", file=sys.stderr)
+             sys.exit(1)
+     else:
+-        # ΓöÇΓöÇ Mode: inline  (semkw "text here") ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
++        # ΓöÇΓöÇ Inline text mode ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+         text = args.text
+ 
+-    # ΓöÇΓöÇ Extract (inline + pipe) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+     results = extract(
+         text,
+         top_n=args.top,
+@@ -275,10 +394,9 @@ def main() -> None:
+     if args.scores:
+         _print_results(results, args.top)
+     else:
+-        # Minimal output: one keyword per line (pipe-friendly)
+-        for r in results[: args.top]:
++        for r in results[:args.top]:
+             print(r["keyword"])
+ 
+ 
+ if __name__ == "__main__":
+-    main()
++    main()
+\ No newline at end of file
+diff --git a/semantic_keywords/file_api.py b/semantic_keywords/file_api.py
+new file mode 100644
+index 0000000..0d7798a
+--- /dev/null
++++ b/semantic_keywords/file_api.py
+@@ -0,0 +1,78 @@
++# semantic_keywords/file_api.py
++"""
++High-level file extraction API.
++Combines reader.read_file() + extractor.extract() into one clean call.
++"""
++
++from __future__ import annotations
++
++import os
++from .reader import read_file, file_info
++from .extractor import extract, DEFAULT_MODEL
++
++
++def extract_file(
++    file_path: str | os.PathLike,
++    top_n: int = 5,
++    min_score: float = 0.20,
++    max_words: int = 3,
++    model: str = DEFAULT_MODEL,
++    diversity: float = 0.7,
++) -> dict:
++    """
++    Read a file and extract its top semantic keywords in one call.
++
++    Parameters
++    ----------
++    file_path : Path to a .pdf, .txt, or .md file.
++    top_n     : Maximum number of keywords to return.
++    min_score : Minimum cosine similarity threshold (0.0ΓÇô1.0).
++    max_words : Maximum words per candidate phrase (1ΓÇô3).
++    model     : "fast" | "balanced" | "accurate" | any HF model name.
++    diversity : MMR balance factor (0.0 = relevant, 1.0 = diverse).
++
++    Returns
++    -------
++    dict with keys:
++        "file"     : str          ΓÇö file name
++        "size_kb"  : float        ΓÇö file size in KB
++        "words"    : int          ΓÇö word count of extracted text
++        "model"    : str          ΓÇö model alias used
++        "keywords" : list[dict]   ΓÇö [{"keyword": str, "score": float}, ...]
++
++    Raises
++    ------
++    FileNotFoundError ΓÇö file does not exist.
++    ValueError        ΓÇö unsupported format or unreadable PDF.
++    ImportError       ΓÇö pypdf not installed (PDF only).
++
++    Examples
++    --------
++    >>> from semantic_keywords import extract_file
++    >>> result = extract_file("annual_report.pdf", top_n=10, model="balanced")
++    >>> for kw in result["keywords"]:
++    ...     print(kw["score"], kw["keyword"])
++
++    >>> result = extract_file("notes.txt", top_n=3)
++    >>> print(result["keywords"])
++    [{"keyword": "mobile money", "score": 0.513}, ...]
++    """
++    info = file_info(file_path)
++    text = read_file(file_path)
++
++    keywords = extract(
++        text,
++        top_n=top_n,
++        min_score=min_score,
++        max_words=max_words,
++        model=model,
++        diversity=diversity,
++    )
++
++    return {
++        "file":     info["name"],
++        "size_kb":  info["size_kb"],
++        "words":    len(text.split()),
++        "model":    model,
++        "keywords": keywords,
++    }
+\ No newline at end of file
+diff --git a/semantic_keywords/reader.py b/semantic_keywords/reader.py
+new file mode 100644
+index 0000000..2d0301c
+--- /dev/null
++++ b/semantic_keywords/reader.py
+@@ -0,0 +1,135 @@
++# semantic_keywords/reader.py
++"""
++File reading utilities for semantic-keywords.
++
++Supported formats
++-----------------
++.pdf   ΓÇö extracted via pypdf (optional dependency)
++.txt   ΓÇö read as UTF-8, fallback to latin-1
++.md    ΓÇö same as .txt
++
++Usage
++-----
++    from semantic_keywords.reader import read_file
++    text = read_file("report.pdf")
++"""
++
++from __future__ import annotations
++
++import os
++from pathlib import Path
++
++# Formats we can handle
++SUPPORTED_EXTENSIONS = {".pdf", ".txt", ".md"}
++
++
++def _read_pdf(path: Path) -> str:
++    """
++    Extract all text from a PDF using pypdf.
++    Raises ImportError with install instructions if pypdf is not installed.
++    Raises ValueError if the PDF yields no extractable text (e.g. scanned image PDF).
++    """
++    try:
++        import pypdf  # noqa: PLC0415
++    except ImportError:
++        raise ImportError(
++            "pypdf is required to read PDF files.\n"
++            "Install it with:\n\n"
++            "    pip install pypdf\n\n"
++            "Or install the full file-reading extras:\n\n"
++            "    pip install semantic-keywords[files]\n"
++        )
++
++    pages: list[str] = []
++    with open(path, "rb") as fh:
++        reader = pypdf.PdfReader(fh)
++        if reader.is_encrypted:
++            raise ValueError(
++                f"'{path.name}' is password-protected. "
++                "Decrypt the PDF before extracting keywords."
++            )
++        for i, page in enumerate(reader.pages):
++            text = page.extract_text() or ""
++            if text.strip():
++                pages.append(text)
++
++    if not pages:
++        raise ValueError(
++            f"No extractable text found in '{path.name}'.\n"
++            "This is usually a scanned/image-only PDF. "
++            "Run it through an OCR tool first (e.g. Adobe, tesseract)."
++        )
++
++    return "\n\n".join(pages)
++
++
++def _read_text(path: Path) -> str:
++    """Read a plain-text or markdown file, trying UTF-8 then latin-1."""
++    try:
++        return path.read_text(encoding="utf-8")
++    except UnicodeDecodeError:
++        return path.read_text(encoding="latin-1")
++
++
++def read_file(file_path: str | os.PathLike) -> str:
++    """
++    Read a file and return its text content as a single string.
++
++    Parameters
++    ----------
++    file_path : Path to a .pdf, .txt, or .md file.
++
++    Returns
++    -------
++    str ΓÇö the full extracted text, ready to pass into extract().
++
++    Raises
++    ------
++    FileNotFoundError  ΓÇö file does not exist.
++    ValueError         ΓÇö unsupported extension, encrypted PDF,
++                         or image-only PDF with no extractable text.
++    ImportError        ΓÇö pypdf not installed (PDF files only).
++
++    Examples
++    --------
++    >>> from semantic_keywords import read_file, extract
++    >>> text    = read_file("annual_report.pdf")
++    >>> results = extract(text, top_n=10)
++    """
++    path = Path(file_path)
++
++    if not path.exists():
++        raise FileNotFoundError(f"File not found: '{path}'")
++
++    if not path.is_file():
++        raise ValueError(f"'{path}' is a directory, not a file.")
++
++    ext = path.suffix.lower()
++    if ext not in SUPPORTED_EXTENSIONS:
++        raise ValueError(
++            f"Unsupported file type: '{ext}'.\n"
++            f"Supported formats: {', '.join(sorted(SUPPORTED_EXTENSIONS))}"
++        )
++
++    if ext == ".pdf":
++        return _read_pdf(path)
++    else:
++        return _read_text(path)
++
++
++def file_info(file_path: str | os.PathLike) -> dict:
++    """
++    Return basic metadata about a file without reading all its content.
++    Useful for CLI display before extraction runs.
++
++    Returns
++    -------
++    dict with keys: name, extension, size_kb, exists
++    """
++    path = Path(file_path)
++    return {
++        "name":      path.name,
++        "extension": path.suffix.lower(),
++        "size_kb":   round(path.stat().st_size / 1024, 1) if path.exists() else 0,
++        "exists":    path.exists(),
++    }
+\ No newline at end of file
+diff --git a/test_extractor.py b/test_extractor.py
+index 832f7bf..45212bb 100644
+--- a/test_extractor.py
++++ b/test_extractor.py
+@@ -1,8 +1,20 @@
+ # test_extractor.py
+-# Detects downloaded models, prompts you to pick one, runs all tests,
+-# then drops into a live interactive session so you can try your own text.
++# Run: python test_extractor.py
++# Detects downloaded models, prompts you to pick one, runs all tests
++# including file-based extraction, then drops into a live demo.
+ 
+-from semantic_keywords import extract, list_models, prompt_model_selection
++from __future__ import annotations
++import os
++import tempfile
++from pathlib import Path
++
++from semantic_keywords import (
++    extract,
++    extract_file,
++    read_file,
++    list_models,
++    prompt_model_selection,
++)
+ 
+ # ΓöÇΓöÇ Header ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+ print("=" * 62)
+@@ -27,9 +39,9 @@ def show_results(results: list[dict], top_n: int = 5) -> None:
+     print()
+ 
+ 
+-# ΓöÇΓöÇ Test cases ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
++# ΓöÇΓöÇ Text-based tests ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+ 
+-TESTS = [
++TEXT_TESTS = [
+     {
+         "label": "Tech / Africa",
+         "text": """
+@@ -63,24 +75,12 @@ TESTS = [
+     {
+         "label": "Top 3 only",
+         "text": """
+-            Python is a high-level programming language known for its simplicity and
+-            readability. It is widely used in data science, web development, automation,
++            Python is a high-level programming language known for its simplicity.
++            It is widely used in data science, web development, automation,
+             and artificial intelligence research.
+         """,
+         "top_n": 3,
+     },
+-    {
+-        "label": "Top 8 ΓÇö long text",
+-        "text": """
+-            Blockchain technology underpins cryptocurrencies like Bitcoin and Ethereum,
+-            providing a decentralised ledger for secure peer-to-peer transactions.
+-            Smart contracts automate agreements without intermediaries. Decentralised
+-            finance (DeFi) platforms allow lending, borrowing, and trading of digital
+-            assets without traditional banks. Non-fungible tokens (NFTs) use blockchain
+-            to verify ownership of digital art and collectibles.
+-        """,
+-        "top_n": 8,
+-    },
+     {
+         "label": "Short phrase (edge case)",
+         "text": "Mobile money East Africa",
+@@ -92,7 +92,7 @@ TESTS = [
+         "top_n": 5,
+     },
+     {
+-        "label": "diversity=0.3 vs diversity=0.9  (same text)",
++        "label": "diversity=0.3 vs diversity=0.9",
+         "text": """
+             Tanzania is rapidly developing its technology sector, with Dar es Salaam
+             emerging as a fintech hub. Mobile money platforms like M-Pesa have
+@@ -103,26 +103,130 @@ TESTS = [
+     },
+ ]
+ 
+-print(f"  Running {len(TESTS)} tests with model: [{chosen_model}]\n")
++print(f"  Running text tests with model: [{chosen_model}]\n")
+ print("=" * 62)
+ 
+-for test in TESTS:
++for test in TEXT_TESTS:
+     label = test["label"]
+     text  = test["text"]
+     top_n = test["top_n"]
+-
+     print(f"\nΓöÇΓöÇ {label} {'ΓöÇ' * max(0, 56 - len(label))}")
+ 
+     if test.get("compare_diversity"):
+-        for div, tag in [(0.3, "diversity=0.3  (more relevant, less varied)"),
+-                         (0.9, "diversity=0.9  (more varied, less repetitive)")]:
++        for div, tag in [
++            (0.3, "diversity=0.3  (more relevant)"),
++            (0.9, "diversity=0.9  (more varied)"),
++        ]:
+             print(f"\n  [{tag}]")
+-            r = extract(text, model=chosen_model, top_n=top_n, diversity=div)
+-            show_results(r, top_n)
++            show_results(extract(text, model=chosen_model, top_n=top_n, diversity=div), top_n)
+     else:
+         results = extract(text, model=chosen_model, top_n=top_n) if text else []
+         show_results(results, top_n)
+ 
++# ΓöÇΓöÇ File-based tests ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
++
++print("\n" + "=" * 62)
++print("  File extraction tests")
++print("=" * 62)
++
++# ΓöÇΓöÇ Test 1: .txt file (created on the fly) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
++print("\nΓöÇΓöÇ extract_file()  ΓåÆ  .txt  ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ")
++
++TXT_CONTENT = """
++Tanzania is rapidly developing its technology sector, with Dar es Salaam
++emerging as a fintech hub. Mobile money platforms like M-Pesa have
++transformed financial access across East Africa. Local startups are building
++AI-powered agricultural tools to help smallholder farmers with crop prediction.
++"""
++
++with tempfile.NamedTemporaryFile(
++    mode="w", suffix=".txt", delete=False, encoding="utf-8"
++) as tmp:
++    tmp.write(TXT_CONTENT)
++    tmp_txt = tmp.name
++
++try:
++    result = extract_file(tmp_txt, top_n=5, model=chosen_model)
++    print(f"  File   : {result['file']}")
++    print(f"  Size   : {result['size_kb']} KB")
++    print(f"  Words  : {result['words']}")
++    print(f"  Model  : {result['model']}")
++    show_results(result["keywords"], 5)
++finally:
++    os.unlink(tmp_txt)
++
++# ΓöÇΓöÇ Test 2: .md file ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
++print("\nΓöÇΓöÇ extract_file()  ΓåÆ  .md  ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ")
++
++MD_CONTENT = """
++# Blockchain and Decentralised Finance
++
++Blockchain technology underpins cryptocurrencies like Bitcoin and Ethereum,
++providing a decentralised ledger for secure peer-to-peer transactions.
++Smart contracts automate agreements without intermediaries. DeFi platforms
++allow lending, borrowing, and trading of digital assets without traditional banks.
++Non-fungible tokens (NFTs) use blockchain to verify ownership of digital art.
++"""
++
++with tempfile.NamedTemporaryFile(
++    mode="w", suffix=".md", delete=False, encoding="utf-8"
++) as tmp:
++    tmp.write(MD_CONTENT)
++    tmp_md = tmp.name
++
++try:
++    result = extract_file(tmp_md, top_n=5, model=chosen_model)
++    print(f"  File   : {result['file']}")
++    print(f"  Words  : {result['words']}")
++    show_results(result["keywords"], 5)
++finally:
++    os.unlink(tmp_md)
++
++# ΓöÇΓöÇ Test 3: PDF (if pypdf installed) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
++print("\nΓöÇΓöÇ extract_file()  ΓåÆ  .pdf  (skipped if pypdf not installed) ΓöÇ")
++try:
++    import pypdf  # noqa: F401
++    print("  pypdf detected ΓÇö to test PDF extraction pass a real PDF path:")
++    print("  result = extract_file('your_file.pdf', top_n=10)")
++    print("  (automated PDF creation requires reportlab; run manually instead)\n")
++except ImportError:
++    print("  pypdf not installed ΓÇö PDF support inactive.")
++    print("  To enable:  pip install pypdf\n")
++
++# ΓöÇΓöÇ Test 4: read_file() directly ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
++print("\nΓöÇΓöÇ read_file()  ΓåÆ  returns raw text  ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ")
++with tempfile.NamedTemporaryFile(
++    mode="w", suffix=".txt", delete=False, encoding="utf-8"
++) as tmp:
++    tmp.write("Nairobi is a growing hub for fintech and mobile payments in Africa.")
++    tmp_read = tmp.name
++
++try:
++    text = read_file(tmp_read)
++    preview = text.strip()[:80]
++    print(f"  Extracted text: \"{preview}\"")
++    print(f"  Word count    : {len(text.split())}\n")
++finally:
++    os.unlink(tmp_read)
++
++# ΓöÇΓöÇ Test 5: error handling ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
++print("\nΓöÇΓöÇ Error handling  ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ")
++
++tests_errors = [
++    ("nonexistent.pdf",  FileNotFoundError, "missing file"),
++    ("report.xyz",       ValueError,        "unsupported extension"),
++]
++
++for bad_path, expected_exc, label in tests_errors:
++    try:
++        read_file(bad_path)
++        print(f"  FAIL  [{label}] ΓÇö no exception raised")
++    except expected_exc as e:
++        print(f"  PASS  [{label}] ΓÇö {type(e).__name__}: {str(e)[:60]}")
++    except Exception as e:
++        print(f"  FAIL  [{label}] ΓÇö unexpected {type(e).__name__}: {e}")
++print()
++
+ # ΓöÇΓöÇ Model registry ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+ print("ΓöÇΓöÇ Model registry " + "ΓöÇ" * 44)
+ print(f"\n  {'Alias':<12} {'HuggingFace name':<35} {'Size':<8} Note")
+@@ -139,40 +243,67 @@ print(f"\n  * = model used in this run\n")
+ print("=" * 62)
+ 
+ # ΓöÇΓöÇ Live demo ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+-print("\n  All tests passed. Try the package yourself:\n")
++print("\n  All tests done. Try it yourself:\n")
++print("  Options:")
++print("    [1]  Type or paste text")
++print("    [2]  Enter a file path  (.pdf / .txt / .md)")
++print("    [q]  Quit\n")
+ 
+ while True:
+-    print("  Enter text to extract keywords from.")
+-    print("  Press Enter twice when done. Type 'quit' to exit.\n")
++    choice = input("  Choose [1/2/q]: ").strip().lower()
+ 
+-    lines: list[str] = []
+-    while True:
+-        try:
+-            line = input()
+-        except EOFError:
+-            break
+-        if line.strip().lower() == "quit":
+-            lines = []
+-            break
+-        if line == "" and lines and lines[-1] == "":
+-            break
+-        lines.append(line)
++    if choice == "q" or choice == "":
++        print("\n  Goodbye!\n")
++        break
+ 
+-    text = "\n".join(lines).strip()
++    if choice not in ("1", "2"):
++        print("  Enter 1, 2, or q.")
++        continue
+ 
+-    if not text:
+-        print("\n  Exiting. Goodbye!\n")
+-        break
++    text = ""
++
++    if choice == "1":
++        print("\n  Type/paste your text. Press Enter twice when done.\n")
++        lines: list[str] = []
++        while True:
++            try:
++                line = input()
++            except EOFError:
++                break
++            if line == "" and lines and lines[-1] == "":
++                break
++            lines.append(line)
++        text = "\n".join(lines).strip()
++        if not text:
++            print("  No text entered.\n")
++            continue
++
++    elif choice == "2":
++        raw = input("\n  File path: ").strip().strip('"')
++        if not raw:
++            print("  No path entered.\n")
++            continue
++        p = Path(raw)
++        if not p.exists():
++            print(f"  Not found: '{raw}'\n")
++            continue
++        print(f"  Reading '{p.name}' ...")
++        try:
++            text = read_file(p)
++            print(f"  {len(text.split())} words extracted.\n")
++        except (ImportError, ValueError) as e:
++            print(f"  Error: {e}\n")
++            continue
+ 
+     while True:
+-        raw = input("\n  Top N keywords? [default 5]: ").strip()
+-        if raw == "":
++        raw_n = input("  Top N keywords? [default 5]: ").strip()
++        if raw_n == "":
+             top_n = 5
+             break
+-        if raw.isdigit() and int(raw) >= 1:
+-            top_n = int(raw)
++        if raw_n.isdigit() and int(raw_n) >= 1:
++            top_n = int(raw_n)
+             break
+-        print("  Please enter a positive whole number.")
++        print("  Enter a positive number.")
+ 
+     print(f"\n  Extracting top {top_n} keywords  [model: {chosen_model}] ...\n")
+     results = extract(text, model=chosen_model, top_n=top_n)
