@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name            = "semantic-keywords"
-version         = "0.2.0"
+version         = "0.2.1"
 description     = "AI-powered semantic keyword extraction using sentence embeddings and MMR"
 readme          = "README.md"
 license         = { text = "MIT" }

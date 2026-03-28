@@ -26,7 +26,7 @@ from .extractor import (
 from .file_api import extract_file
 from .reader import file_info, read_file
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 __all__ = [
     # Core extraction
