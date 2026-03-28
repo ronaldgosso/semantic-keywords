@@ -9,14 +9,14 @@ import textwrap
 from pathlib import Path
 
 from .extractor import (
-    extract,
-    detect_available_models,
-    prompt_model_selection,
-    MODEL_REGISTRY,
     DEFAULT_MODEL,
+    MODEL_REGISTRY,
+    detect_available_models,
+    extract,
+    prompt_model_selection,
 )
-from .reader import read_file, file_info, SUPPORTED_EXTENSIONS
 from .file_api import extract_file
+from .reader import SUPPORTED_EXTENSIONS, file_info, read_file
 
 BANNER = """
   ╔══════════════════════════════════════════════╗
@@ -313,7 +313,7 @@ def main() -> None:
                 f"  {status:<14}"
                 f"  {info['note']}"
             )
-        print(f"\n  * = default  |  download missing: python download_model.py\n")
+        print("\n  * = default  |  download missing: python download_model.py\n")
         sys.exit(0)
 
     model = _resolve_model(args.model)

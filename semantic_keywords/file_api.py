@@ -7,8 +7,9 @@ Combines reader.read_file() + extractor.extract() into one clean call.
 from __future__ import annotations
 
 import os
-from .reader import read_file, file_info
-from .extractor import extract, DEFAULT_MODEL
+
+from .extractor import DEFAULT_MODEL, extract
+from .reader import file_info, read_file
 
 
 def extract_file(
