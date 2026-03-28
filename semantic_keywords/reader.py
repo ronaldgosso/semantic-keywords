@@ -128,8 +128,8 @@ def file_info(file_path: str | os.PathLike) -> dict:
     """
     path = Path(file_path)
     return {
-        "name":      path.name,
+        "name": path.name,
         "extension": path.suffix.lower(),
-        "size_kb":   round(path.stat().st_size / 1024, 1) if path.exists() else 0,
-        "exists":    path.exists(),
+        "size_kb": round(path.stat().st_size / 1024, 1) if path.exists() else 0,
+        "exists": path.exists(),
     }

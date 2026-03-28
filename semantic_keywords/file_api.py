@@ -71,9 +71,9 @@ def extract_file(
     )
 
     return {
-        "file":     info["name"],
-        "size_kb":  info["size_kb"],
-        "words":    len(text.split()),
-        "model":    model,
+        "file": info["name"],
+        "size_kb": info["size_kb"],
+        "words": len(text.split()),
+        "model": model,
         "keywords": keywords,
     }

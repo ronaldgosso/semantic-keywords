@@ -33,14 +33,14 @@ def _print_results(results: list[dict], top_n: int) -> None:
         return
 
     actual = results[:top_n]
-    width  = max(len(r["keyword"]) for r in actual) + 2
+    width = max(len(r["keyword"]) for r in actual) + 2
 
     print(f"\n  Top {len(actual)} keyword{'s' if len(actual) != 1 else ''}:\n")
     print(f"  {'#':<4} {'Keyword':<{width}} {'Score':<8} Relevance")
     print(f"  {'─'*2}   {'─'*(width-2)}   {'─'*6}   {'─'*22}")
 
     for rank, r in enumerate(actual, start=1):
-        bar   = "█" * int(r["score"] * 28)
+        bar = "█" * int(r["score"] * 28)
         empty = "░" * (28 - len(bar))
         print(f"  {rank:<4} {r['keyword']:<{width}} {r['score']:.4f}   {bar}{empty}")
 
@@ -70,6 +70,7 @@ def _resolve_model(model_arg: str | None) -> str:
 
 # ── Interactive mode ──────────────────────────────────────────────────────────
 
+
 def _interactive_mode(model: str) -> None:
     """
     Fully guided interactive session supporting both text input and file paths.
@@ -90,7 +91,7 @@ def _interactive_mode(model: str) -> None:
                 break
             print("  Enter 1 or 2.")
 
-        text       = ""
+        text = ""
         input_label = ""
 
         # ── Option 1: text input ──────────────────────────────────────────────
@@ -114,7 +115,7 @@ def _interactive_mode(model: str) -> None:
                 print("\n  No text entered. Please try again.\n")
                 continue
 
-            preview     = textwrap.shorten(text, width=64, placeholder="...")
+            preview = textwrap.shorten(text, width=64, placeholder="...")
             input_label = f'"{preview}"'
 
         # ── Option 2: file input ──────────────────────────────────────────────
@@ -151,7 +152,7 @@ def _interactive_mode(model: str) -> None:
                     print(f"\n  {e}")
                     continue
 
-                info        = file_info(path)
+                info = file_info(path)
                 input_label = f"{info['name']}  ({info['size_kb']} KB,  {len(text.split())} words)"
                 break
 
@@ -214,9 +215,10 @@ def _interactive_mode(model: str) -> None:
 
 # ── CLI argument parser ───────────────────────────────────────────────────────
 
+
 def _build_parser() -> argparse.ArgumentParser:
     model_choices = list(MODEL_REGISTRY.keys())
-    ext_list      = "  ".join(sorted(SUPPORTED_EXTENSIONS))
+    ext_list = "  ".join(sorted(SUPPORTED_EXTENSIONS))
 
     parser = argparse.ArgumentParser(
         prog="semkw",
@@ -245,20 +247,23 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Inline text to extract keywords from. Omit to enter interactive mode.",
     )
     parser.add_argument(
-        "--file", "-f",
+        "--file",
+        "-f",
         default=None,
         metavar="PATH",
         help=f"Path to a file to extract keywords from ({ext_list}).",
     )
     parser.add_argument(
-        "--top", "-n",
+        "--top",
+        "-n",
         type=int,
         default=5,
         metavar="N",
         help="Maximum keywords to return (default: 5).",
     )
     parser.add_argument(
-        "--model", "-m",
+        "--model",
+        "-m",
         default=None,
         choices=model_choices,
         metavar="MODEL",
@@ -294,9 +299,10 @@ def _build_parser() -> argparse.ArgumentParser:
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 
+
 def main() -> None:
     parser = _build_parser()
-    args   = parser.parse_args()
+    args = parser.parse_args()
 
     # ── --list-models ─────────────────────────────────────────────────────────
     if args.list_models:
@@ -394,7 +400,7 @@ def main() -> None:
     if args.scores:
         _print_results(results, args.top)
     else:
-        for r in results[:args.top]:
+        for r in results[: args.top]:
             print(r["keyword"])
 
 
