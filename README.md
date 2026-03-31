@@ -8,7 +8,7 @@
 [![PyPI version](https://img.shields.io/pypi/v/semantic-keywords.svg?color=7c6af7)](https://pypi.org/project/semantic-keywords/)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-3ecfb2.svg)](https://opensource.org/licenses/MIT)
-<!-- [![Downloads](https://img.shields.io/pypi/dm/semantic-keywords.svg)](https://pypi.org/project/semantic-keywords/) -->
+ [![Downloads](https://img.shields.io/pypi/dm/semantic-keywords.svg)](https://pypi.org/project/semantic-keywords/)
 
 <br/>
 
@@ -228,6 +228,8 @@ echo "deep learning transformers" | semkw -n 3     # pipe
 ---
 
 ## Python API reference
+
+### Google Colab Example [Link](https://colab.research.google.com/drive/1KTsJmRSWh4B_P6d76cmeyIr4O_Igmqv4?usp=sharing)
 
 ### `extract(text, **kwargs) → list[dict]`
 
