@@ -41,6 +41,7 @@ Output → mobile money       0.5134  ██████████████
 ## Table of contents
 
 - [Install](#install)
+- [Docker](#docker)
 - [Quick start](#quick-start)
 - [File extraction (PDF, TXT, MD)](#file-extraction)
 - [CLI reference](#cli-reference)
@@ -76,6 +77,58 @@ Or use the interactive downloader bundled with the repo:
 
 ```bash
 python download_model.py
+```
+
+---
+
+## Docker
+
+Run `semantic-keywords` in a container without installing Python locally.
+
+### Pull from Docker Hub
+
+```bash
+docker pull ronaldgosso/semantic-keywords
+```
+
+### Quick start
+
+```bash
+# Inline text
+docker run --rm ronaldgosso/semantic-keywords "Tanzania fintech mobile money"
+
+# With scores
+docker run --rm ronaldgosso/semantic-keywords "climate change arctic" --scores -n 8
+
+# Extract from a file (mount the file directory)
+docker run --rm -v ./documents:/data ronaldgosso/semantic-keywords --file /data/report.pdf
+```
+
+### Build locally
+
+```bash
+# Build the image
+docker build -t semantic-keywords .
+
+# Run with docker compose
+mkdir -p data
+docker compose run --rm semkw "your text here"
+
+# Extract from a file
+cp report.pdf data/
+docker compose run --rm semkw --file /data/report.pdf --scores
+```
+
+### Persistent model cache
+
+The compose file includes a `model-cache` volume so the embedding model is downloaded only once:
+
+```bash
+# First run — downloads the model (~90 MB)
+docker compose run --rm semkw "test text"
+
+# Subsequent runs — uses cached model, much faster
+docker compose run --rm semkw --file /data/notes.txt
 ```
 
 ---
@@ -423,6 +476,7 @@ The `publish.yml` workflow builds the wheel and uploads to PyPI using OIDC trust
 |---|---|---|
 | `ci.yml` | Every push / PR to `main` | ruff + black + mypy |
 | `publish.yml` | Push a `v*.*.*` tag | Build wheel + upload to PyPI |
+| `docker.yml` | Push to `main` or `v*` tag | Build & push Docker image to Docker Hub |
 | `pages.yml` | Every push to `main` | Deploy `docs/` to GitHub Pages |
 
 ### Adding a new model
@@ -467,8 +521,12 @@ semantic-keywords/
 │   └── workflows/
 │       ├── ci.yml              # lint on every push
 │       ├── publish.yml         # publish to PyPI on version tag
+│       ├── docker.yml          # build & push Docker image
 │       └── pages.yml           # deploy docs on push to main
 ├── pyproject.toml              # package metadata + tool config
+├── Dockerfile                  # multi-stage Docker build
+├── docker-compose.yml          # Docker Compose for local usage
+├── .dockerignore               # files to exclude from Docker build
 ├── README.md
 ├── test_extractor.py           # test suite + interactive demo
 └── download_model.py           # interactive model downloader

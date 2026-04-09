@@ -1,0 +1,35 @@
+# Version control
+.git
+.github
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+.mypy_cache
+.ruff_cache
+.venv
+*.egg-info
+*.egg
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation
+docs/
+
+# Testing
+test_extractor.py
+experiment.py
+
+# Misc
+*.log
+*.md
+LICENSE

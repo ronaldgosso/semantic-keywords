@@ -1,0 +1,19 @@
+services:
+  semkw:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: semantic-keywords:latest
+    volumes:
+      - ./data:/data
+      - model-cache:/cache
+    working_dir: /data
+    stdin_open: true
+    tty: true
+    entrypoint: ["semkw"]
+    command: ["--help"]
+
+volumes:
+  model-cache:
+    driver: local
