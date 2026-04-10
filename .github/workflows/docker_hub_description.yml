@@ -1,0 +1,31 @@
+# .github/workflows/docker_hub_description.yml
+# Updates Docker Hub description from README_DOCKER.md on changes.
+
+name: Update Docker Hub Description
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "README_DOCKER.md"
+  pull_request:
+    paths:
+      - "README_DOCKER.md"
+
+jobs:
+  update-description:
+    name: Update Docker Hub Description
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Docker Hub Description
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_FA }}
+          repository: ronaldgosso/semantic-keywords
+          readme-filepath: README_DOCKER.md
