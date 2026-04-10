@@ -40,7 +40,7 @@ All GitHub Actions workflows are chained in a specific order to ensure quality g
 ### Execution Flow
 
 ```
-Push/PR to main
+Push to main
     │
     ▼
 ┌──────────┐
@@ -48,10 +48,9 @@ Push/PR to main
 └────┬─────┘
      │ ✅ success
      ▼
-┌──────────────┐     ┌─────────────┐
-│   Docker     │────▶│   PyPI      │
-│ (if files    │     │ (on tag)    │
-│  changed)    │     └─────────────┘
+┌──────────────┐
+│   Docker     │ ← Only if relevant files changed
+│ (path filter)│
 └──────┬───────┘
        │ ✅ success
        ▼
@@ -63,6 +62,27 @@ Push/PR to main
 ┌──────────────┐
 │   Pages      │ ← Independent (only on index.html change)
 └──────────────┘
+
+
+Version tag push (v*.*.*)
+    │
+    ▼
+┌──────────┐
+│   CI     │ ← Gatekeeper
+└────┬─────┘
+     │ ✅ success
+     ▼
+┌──────────────┐     ┌─────────────┐
+│   Docker     │────▶│   PyPI      │
+│(if files     │     │  (publish)  │
+│ changed)     │     └─────────────┘
+└──────┬───────┘
+       │ ✅ success
+       ▼
+┌──────────────┐  ┌────────────────────┐
+│   Cleanup    │  │  Hub Description   │
+│  (4 tags)    │  │  (sync README)     │
+└──────────────┘  └────────────────────┘
 ```
 
 ---
@@ -89,18 +109,20 @@ if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclus
 
 ### Path Filters
 
-To avoid unnecessary runs, workflows use `paths` filters:
+To avoid unnecessary runs, workflows use `paths` filters. **If none of the listed files change, the workflow is skipped entirely.**
 
 **Docker workflow** triggers only when:
-- `semantic_keywords/**` — package code changes
 - `Dockerfile` — build configuration
 - `docker-compose.yml` — compose configuration
 - `.dockerignore` — build context changes
+- `semantic_keywords/**` — package code changes
 - `pyproject.toml` — dependency changes
-- `requirements.txt` — pinned dependency changes
 
 **Pages workflow** triggers only when:
 - `docs/index.html` — landing page changes
+
+**PyPI Publish** triggers only when:
+- Version tag pushed (`v*.*.*` pattern)
 
 ---
 
@@ -112,9 +134,10 @@ To avoid unnecessary runs, workflows use `paths` filters:
 - Fails fast if any linter or type checker errors
 
 ### Docker Workflow
-- Runs after CI success **OR** on version tag push
-- **Additional condition**: Checks commit message for "docker" or "Docker" keywords
-- Path filters prevent runs on unrelated changes (docs, markdown, etc.)
+- Runs **only after CI success** AND only when relevant files change
+- Path filters: `Dockerfile`, `docker-compose.yml`, `.dockerignore`, `semantic_keywords/**`, `pyproject.toml`
+- Skipped on unrelated changes (docs, markdown, README, etc.)
+- Version tag pushes also trigger Docker build
 
 ### Docker Cleanup
 - Only runs after Docker workflow success
@@ -127,7 +150,8 @@ To avoid unnecessary runs, workflows use `paths` filters:
 - Manual dispatch available for ad-hoc updates
 
 ### PyPI Publish
-- **Primary trigger**: Version tag push (`v0.2.5`)
+- **Only triggers on version tag push** (`v*.*.*`)
+- No `workflow_run` dependency — tags are the sole trigger
 - Uses OIDC trusted publishing — no PyPI API token needed
 - Environment protection: `pypi`
 
@@ -206,9 +230,17 @@ git push && git push --tags
 
 ### What Happens After Push
 
+**Regular push to `main`:**
 1. **CI** runs immediately — must pass
-2. **PyPI Publish** triggers on the tag push
-3. **Docker** builds the image (if CI passed)
+2. **Docker** runs if relevant files changed (after CI success)
+3. **Docker Cleanup** runs if Docker succeeded
+4. **Docker Hub Description** runs if Docker succeeded
+5. **PyPI Publish** is **skipped** (no version tag)
+
+**Version tag push (`git push --tags`):**
+1. **CI** runs on the tagged commit
+2. **PyPI Publish** triggers on the tag
+3. **Docker** builds the image (if CI passed + relevant files changed)
 4. **Docker Cleanup** removes old tags (keeps 4)
 5. **Docker Hub Description** syncs `README_DOCKER.md`
 
@@ -487,4 +519,4 @@ semkw --list-models
 
 ---
 
-*Last updated: 2026-04-09 · v0.2.5*
+*Last updated: 2026-04-09 · v0.2.6*
