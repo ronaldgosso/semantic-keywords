@@ -1,8 +1,11 @@
 <div align="center">
 
-<img src="docs/icon.svg" alt="semantic-keywords icon" width="128" height="128">
+<img src="https://raw.githubusercontent.com/ronaldgosso/semantic-keywords/main/docs/icon.svg" alt="semantic-keywords icon" width="128" height="128">
 
 # Docker — semantic-keywords
+
+[![Docker Image Size](https://img.shields.io/docker/image-size/ronaldgosso/semantic-keywords?color=7c6af7&logo=docker)](https://hub.docker.com/r/ronaldgosso/semantic-keywords)
+[![Docker Pulls](https://img.shields.io/docker/pulls/ronaldgosso/semantic-keywords?color=3ecfb2&logo=docker)](https://hub.docker.com/r/ronaldgosso/semantic-keywords)
 
 Run semantic-keywords in Docker containers for production, CI/CD, or isolated environments.
 
