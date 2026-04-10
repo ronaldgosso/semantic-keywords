@@ -224,7 +224,8 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="semkw",
         description="Extract semantic keywords from text or files using embeddings + MMR.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=textwrap.dedent(f"""
+        epilog=textwrap.dedent(
+            f"""
         supported file types:
           {ext_list}
 
@@ -237,7 +238,8 @@ def _build_parser() -> argparse.ArgumentParser:
           semkw --file report.pdf --scores                 # PDF with score table
           echo "neural networks deep learning" | semkw    # pipe from stdin
           semkw --list-models                              # show model status
-        """),
+        """
+        ),
     )
 
     parser.add_argument(
