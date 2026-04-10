@@ -1,5 +1,6 @@
 # .github/workflows/docker_cleanup.yml
 # Keeps only the 4 most recent Docker Hub tags to save storage.
+# Runs after Docker workflow completes successfully.
 
 name: Docker Hub Cleanup
 

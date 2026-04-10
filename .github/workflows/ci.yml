@@ -1,6 +1,7 @@
 # .github/workflows/ci.yml
 # Runs on every push and pull request.
 # Lints with ruff, checks types with mypy, formats with black.
+# This is the gatekeeper workflow — all others depend on its success.
 
 name: CI
 

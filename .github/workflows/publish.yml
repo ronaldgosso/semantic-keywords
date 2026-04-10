@@ -1,4 +1,6 @@
 # .github/workflows/publish.yml
+# Publishes to PyPI on version tags.
+# Runs after CI workflow completes successfully.
 
 name: Publish to PyPI
 
@@ -6,11 +8,16 @@ on:
   push:
     tags:
       - "v*.*.*"
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: ["main"]
 
 jobs:
   publish:
     name: Build & publish
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
     environment: pypi
 
     permissions:

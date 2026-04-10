@@ -1,22 +1,21 @@
 # .github/workflows/docker_hub_description.yml
 # Updates Docker Hub description from README_DOCKER.md on changes.
+# Runs after Docker workflow completes successfully.
 
 name: Update Docker Hub Description
 
 on:
-  push:
+  workflow_run:
+    workflows: ["Docker"]
+    types: [completed]
     branches: ["main"]
-    paths:
-      - "README_DOCKER.md"
-  pull_request:
-    paths:
-      - "README_DOCKER.md"
+  workflow_dispatch:
 
 jobs:
   update-description:
     name: Update Docker Hub Description
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
 
     steps:
       - name: Checkout
