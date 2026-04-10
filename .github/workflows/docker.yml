@@ -3,14 +3,12 @@ name: Docker
 on:
   push:
     branches: ["main"]
-    tags: ["v*"]
     paths:
-      - "semantic_keywords/**"
       - "Dockerfile"
       - "docker-compose.yml"
       - ".dockerignore"
+      - "semantic_keywords/**"
       - "pyproject.toml"
-      - "requirements.txt"
   workflow_run:
     workflows: ["CI"]
     types: [completed]
@@ -20,11 +18,7 @@ jobs:
   build-and-push:
     name: Build & Push to Docker Hub
     runs-on: ubuntu-latest
-    if: >-
-      ${{
-        (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') &&
-        (github.event_name == 'workflow_run' || contains(github.event.head_commit.message, 'docker') || contains(github.event.head_commit.message, 'Docker'))
-      }}
+    if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' }}
 
     steps:
       - name: Checkout
