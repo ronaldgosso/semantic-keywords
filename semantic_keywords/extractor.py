@@ -228,10 +228,10 @@ def _extract_candidates(text: str, max_words: int = 3) -> list[str]:
 
 def _embed(texts: list[str], model: str = DEFAULT_MODEL) -> np.ndarray:
     m = _get_model(model)
-    result = m.encode(texts, normalize_embeddings=True, show_progress_bar=False)
-    if hasattr(result, "cpu"):
-        result = result.cpu().numpy()
-    return np.asarray(result)
+    output = m.encode(texts, normalize_embeddings=True, show_progress_bar=False)  # type: ignore[assignment]
+    if hasattr(output, "cpu"):
+        return np.asarray(output.cpu().numpy())
+    return np.asarray(output)
 
 
 def _mmr(
