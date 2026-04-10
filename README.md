@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="docs/icon.svg" alt="semantic-keywords icon" width="128" height="128">
+
 <h1>semantic-keywords</h1>
 
 <p><em>AI-powered semantic keyword extraction — offline, fast, and actually useful.</em></p>
