@@ -41,16 +41,15 @@ Output → mobile money       0.5134  ██████████████
 ## Table of contents
 
 - [Install](#install)
-- [Docker](#docker)
 - [Quick start](#quick-start)
 - [File extraction (PDF, TXT, MD)](#file-extraction)
 - [CLI reference](#cli-reference)
 - [Python API reference](#python-api-reference)
 - [Model options](#model-options)
 - [Configuration](#configuration)
-- [Developer guide](#developer-guide)
 - [Project structure](#project-structure)
 - [Changelog](#changelog)
+- [Contributing](#contributing)
 
 ---
 
@@ -77,58 +76,6 @@ Or use the interactive downloader bundled with the repo:
 
 ```bash
 python download_model.py
-```
-
----
-
-## Docker
-
-Run `semantic-keywords` in a container without installing Python locally.
-
-### Pull from Docker Hub
-
-```bash
-docker pull ronaldgosso/semantic-keywords
-```
-
-### Quick start
-
-```bash
-# Inline text
-docker run --rm ronaldgosso/semantic-keywords "Tanzania fintech mobile money"
-
-# With scores
-docker run --rm ronaldgosso/semantic-keywords "climate change arctic" --scores -n 8
-
-# Extract from a file (mount the file directory)
-docker run --rm -v ./documents:/data ronaldgosso/semantic-keywords --file /data/report.pdf
-```
-
-### Build locally
-
-```bash
-# Build the image
-docker build -t semantic-keywords .
-
-# Run with docker compose
-mkdir -p data
-docker compose run --rm semkw "your text here"
-
-# Extract from a file
-cp report.pdf data/
-docker compose run --rm semkw --file /data/report.pdf --scores
-```
-
-### Persistent model cache
-
-The compose file includes a `model-cache` volume so the embedding model is downloaded only once:
-
-```bash
-# First run — downloads the model (~90 MB)
-docker compose run --rm semkw "test text"
-
-# Subsequent runs — uses cached model, much faster
-docker compose run --rm semkw --file /data/notes.txt
 ```
 
 ---
@@ -399,109 +346,34 @@ results = extract("your text", model="BAAI/bge-small-en-v1.5")
 
 ---
 
-## Developer guide
+## Contributing
 
-### Fork and set up locally
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the full developer guide, including:
+
+- Fork and local setup instructions
+- Running tests and linters
+- Making a release
+- Adding new models
+- Docker development workflow
+
+### Quick contributor setup
 
 ```bash
-# 1. Fork on GitHub, then clone your fork
+# Fork on GitHub, then clone your fork
 git clone https://github.com/<your-username>/semantic-keywords.git
 cd semantic-keywords
 
-# 2. Create and activate a virtual environment
+# Create and activate a virtual environment
 python -m venv .venv
+# Windows: .venv\Scripts\activate
+# macOS/Linux: source .venv/bin/activate
 
-# Windows
-.venv\Scripts\activate
-
-# macOS / Linux
-source .venv/bin/activate
-
-# 3. Install in editable mode with all dev dependencies
+# Install in editable mode with dev dependencies
 pip install -e ".[dev]"
 
-# 4. Download at least one model
+# Download a model
 python download_model.py
 ```
-
-### Run the test suite
-
-```bash
-python test_extractor.py
-```
-
-This detects downloaded models, prompts you to pick one, runs all automated tests (text + file extraction + edge cases + error handling), then drops into a live interactive demo.
-
-### Linting and formatting
-
-```bash
-# Check for issues
-ruff check semantic_keywords/
-black --check semantic_keywords/
-mypy semantic_keywords/
-
-# Auto-fix what can be fixed automatically
-ruff check --fix semantic_keywords/
-black semantic_keywords/
-```
-
-All three must pass before opening a pull request. The CI workflow runs them automatically on every push.
-
-### Running the CLI locally (editable install)
-
-After `pip install -e .`, the `semkw` command is live and points at your source files — any edit you make is reflected immediately without reinstalling.
-
-```bash
-semkw "your test text here" --scores
-semkw --file path/to/test.pdf -n 10
-semkw --list-models
-```
-
-### Making a release
-
-```bash
-# Bump version in pyproject.toml and __init__.py
-# Then tag and push — the publish workflow fires automatically
-git add .
-git commit -m "release: v0.2.0"
-git tag v0.2.0
-git push && git push --tags
-```
-
-The `publish.yml` workflow builds the wheel and uploads to PyPI using OIDC trusted publishing — no API token needed.
-
-### GitHub Actions workflows
-
-| Workflow | Trigger | What it does |
-|---|---|---|
-| `ci.yml` | Every push / PR to `main` | ruff + black + mypy |
-| `publish.yml` | Push a `v*.*.*` tag | Build wheel + upload to PyPI |
-| `docker.yml` | Push to `main` or `v*` tag | Build & push Docker image to Docker Hub |
-| `pages.yml` | Every push to `main` | Deploy `docs/` to GitHub Pages |
-
-### Adding a new model
-
-Open `semantic_keywords/extractor.py` and add an entry to `MODEL_REGISTRY`:
-
-```python
-MODEL_REGISTRY: dict[str, dict[str, str]] = {
-    "fast":     {"hf_name": "all-MiniLM-L6-v2",  "size": "90MB",  "note": "..."},
-    "balanced": {"hf_name": "all-MiniLM-L12-v2", "size": "120MB", "note": "..."},
-    "accurate": {"hf_name": "all-mpnet-base-v2",  "size": "420MB", "note": "..."},
-    "your-alias": {"hf_name": "org/model-name",   "size": "???MB", "note": "..."},  # ← add here
-}
-```
-
-No other changes needed — the CLI menu, detection logic, and API all pick it up automatically.
-
-### Contributing
-
-1. Fork the repo
-2. Create a feature branch: `git checkout -b feat/your-feature`
-3. Make your changes and ensure all linters pass
-4. Open a pull request against `main`
-
-Please open an issue first for significant changes so we can discuss the approach.
 
 ---
 
@@ -527,7 +399,9 @@ semantic-keywords/
 ├── Dockerfile                  # multi-stage Docker build
 ├── docker-compose.yml          # Docker Compose for local usage
 ├── .dockerignore               # files to exclude from Docker build
-├── README.md
+├── README.md                   # this file — user documentation
+├── README_DOCKER.md            # Docker-specific instructions
+├── CONTRIBUTING.md             # developer guide
 ├── test_extractor.py           # test suite + interactive demo
 └── download_model.py           # interactive model downloader
 ```
@@ -563,6 +437,8 @@ semantic-keywords/
 | GitHub | https://github.com/ronaldgosso/semantic-keywords |
 | Issues | https://github.com/ronaldgosso/semantic-keywords/issues |
 | CI status | https://github.com/ronaldgosso/semantic-keywords/actions |
+| Contributing guide | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Docker guide | [README_DOCKER.md](README_DOCKER.md) |
 
 ---
 
