@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="docs/icon.svg" alt="semantic-keywords icon" width="128" height="128">
+
 # Docker — semantic-keywords
 
 Run semantic-keywords in Docker containers for production, CI/CD, or isolated environments.
