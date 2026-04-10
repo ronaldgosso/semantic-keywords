@@ -41,6 +41,7 @@ Output → mobile money       0.5134  ██████████████
 ## Table of contents
 
 - [Install](#install)
+- [Docker](#docker-quick-start)
 - [Quick start](#quick-start)
 - [File extraction (PDF, TXT, MD)](#file-extraction)
 - [CLI reference](#cli-reference)
@@ -77,6 +78,25 @@ Or use the interactive downloader bundled with the repo:
 ```bash
 python download_model.py
 ```
+
+---
+
+## Docker (quick start)
+
+No Python install needed — run directly in a container:
+
+```bash
+# Pull and run inline text
+docker run --rm ronaldgosso/semantic-keywords "Tanzania fintech mobile money"
+
+# Extract from a file
+docker run --rm -v ./documents:/data ronaldgosso/semantic-keywords --file /data/report.pdf
+
+# Interactive mode
+docker run --rm -it ronaldgosso/semantic-keywords
+```
+
+> **Full Docker guide:** See [README_DOCKER.md](README_DOCKER.md) for build instructions, compose usage, and production deployment.
 
 ---
 

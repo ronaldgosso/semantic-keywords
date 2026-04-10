@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#7c6af7;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#3ecfb2;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3ecfb2;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#7c6af7;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="240" fill="url(#grad1)" opacity="0.1"/>
+  <circle cx="256" cy="256" r="200" fill="url(#grad1)" opacity="0.15"/>
+  
+  <!-- Network nodes representing keywords/semantics -->
+  <g transform="translate(256, 256)">
+    <!-- Connection lines -->
+    <line x1="-120" y1="-80" x2="120" y2="-60" stroke="url(#grad2)" stroke-width="3" opacity="0.4"/>
+    <line x1="120" y1="-60" x2="100" y2="100" stroke="url(#grad2)" stroke-width="3" opacity="0.4"/>
+    <line x1="100" y1="100" x2="-100" y2="120" stroke="url(#grad2)" stroke-width="3" opacity="0.4"/>
+    <line x1="-100" y1="120" x2="-120" y2="-80" stroke="url(#grad2)" stroke-width="3" opacity="0.4"/>
+    <line x1="-120" y1="-80" x2="0" y2="0" stroke="url(#grad2)" stroke-width="3" opacity="0.5"/>
+    <line x1="120" y1="-60" x2="0" y2="0" stroke="url(#grad2)" stroke-width="3" opacity="0.5"/>
+    <line x1="100" y1="100" x2="0" y2="0" stroke="url(#grad2)" stroke-width="3" opacity="0.5"/>
+    <line x1="-100" y1="120" x2="0" y2="0" stroke="url(#grad2)" stroke-width="3" opacity="0.5"/>
+    <line x1="-120" y1="-80" x2="100" y2="100" stroke="url(#grad2)" stroke-width="2" opacity="0.3"/>
+    <line x1="120" y1="-60" x2="-100" y2="120" stroke="url(#grad2)" stroke-width="2" opacity="0.3"/>
+    
+    <!-- Nodes -->
+    <circle cx="-120" cy="-80" r="28" fill="#7c6af7" opacity="0.9"/>
+    <circle cx="120" cy="-60" r="24" fill="#3ecfb2" opacity="0.9"/>
+    <circle cx="100" cy="100" r="32" fill="#7c6af7" opacity="0.9"/>
+    <circle cx="-100" cy="120" r="20" fill="#3ecfb2" opacity="0.9"/>
+    <circle cx="0" cy="0" r="40" fill="url(#grad1)" opacity="1"/>
+    
+    <!-- Text representation in center node -->
+    <text x="0" y="8" font-family="monospace" font-size="24" font-weight="bold" fill="#0a0a0f" text-anchor="middle">KW</text>
+    
+    <!-- Small word labels around nodes -->
+    <text x="-120" y="-75" font-family="monospace" font-size="14" fill="#ffffff" text-anchor="middle" opacity="0.9">AI</text>
+    <text x="120" y="-55" font-family="monospace" font-size="12" fill="#0a0a0f" text-anchor="middle" opacity="0.9">NLP</text>
+    <text x="100" y="105" font-family="monospace" font-size="16" fill="#ffffff" text-anchor="middle" opacity="0.9">ML</text>
+    <text x="-100" y="125" font-family="monospace" font-size="11" fill="#0a0a0f" text-anchor="middle" opacity="0.9">TF</text>
+  </g>
+  
+  <!-- Outer ring -->
+  <circle cx="256" cy="256" r="180" fill="none" stroke="url(#grad1)" stroke-width="2" opacity="0.3"/>
+</svg>
