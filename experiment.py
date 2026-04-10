@@ -67,7 +67,7 @@ for phrase in candidates:
 
 scored.sort(key=lambda x: x[1], reverse=True)
 
-print(f"\n  Document snippet: Tanzania fintech, mobile money, agricultural AI...\n")
+print("\n  Document snippet: Tanzania fintech, mobile money, agricultural AI...\n")
 print(f"  {'Candidate phrase':<30}  Score   Relevance")
 print(f"  {'─'*30}  ──────  ─────────")
 for phrase, score in scored:

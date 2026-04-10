@@ -3,13 +3,14 @@
 
 from semantic_keywords.extractor import MODEL_REGISTRY, detect_available_models
 
+
 def main() -> None:
     available = detect_available_models()
 
     print("\n" + "=" * 60)
     print("  semantic-keywords  —  model downloader")
     print("=" * 60)
-    print(f"\n  Cache location: ~/.cache/huggingface/hub\n")
+    print("\n  Cache location: ~/.cache/huggingface/hub\n")
 
     # ── Show status table ─────────────────────────────────────────────────────
     print(f"  {'#':<4} {'Alias':<12} {'HuggingFace name':<35} {'Size':<8} Status")

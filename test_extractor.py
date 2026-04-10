@@ -4,6 +4,7 @@
 # including file-based extraction, then drops into a live demo.
 
 from __future__ import annotations
+
 import os
 import tempfile
 from pathlib import Path
@@ -11,9 +12,9 @@ from pathlib import Path
 from semantic_keywords import (
     extract,
     extract_file,
-    read_file,
     list_models,
     prompt_model_selection,
+    read_file,
 )
 
 # ── Header ────────────────────────────────────────────────────────────────────
@@ -239,7 +240,7 @@ for alias, info in list_models().items():
         f"  {info['size']:<8}"
         f"  {info['note']}"
     )
-print(f"\n  * = model used in this run\n")
+print("\n  * = model used in this run\n")
 print("=" * 62)
 
 # ── Live demo ─────────────────────────────────────────────────────────────────
