@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.6] — 2026-04-09
+
+### Fixed
+- CRLF line ending issue causing CI black check failure (added `.gitattributes`)
+- `sentence-transformers` Tensor-to-numpy conversion in `_embed()` for mypy compatibility
+- Docker workflow trigger conditions to depend on CI success
+
+---
+
 ## [0.2.5] — 2026-04-09
 
 ### Added
